@@ -97,7 +97,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
     super.afterAll()
   }
 
-  alert("WARNING: the underlying MySQL container implementation can consume Docker volumne resources")
+  alert("WARNING: the underlying MySQL container implementation can consume Docker volume resources")
   alert("- use `docker volume rm $(docker volume ls -qf dangling=true)` to avoid out of disk space errors")
 
   "Wordpress and MySQL networked application" - {

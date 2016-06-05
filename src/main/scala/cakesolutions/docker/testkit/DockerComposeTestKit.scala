@@ -126,7 +126,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
   }
 
   protected def debug(message: String): Unit = {
-    if (false) {
+    if (true) {
       info(message)
     }
   }
