@@ -30,6 +30,26 @@ import scala.util.{Failure, Success, Try}
 // TODO: abstract out command line arguments (and so promote re-targetting drivers to other implementations)
 // TODO: add in configuration to allow logs to be printed out during a test run
 
+trait DockerContainer {
+  import DockerComposeTestKit._
+  
+  def pause(container: String)(implicit driver: Driver): Unit
+
+  def unpause(container: String)(implicit driver: Driver): Unit
+
+  def stop()(implicit driver: Driver): Unit
+
+  def logging(implicit driver: Driver): Observable[LogEvent]
+
+  def events(implicit driver: Driver): Observable[DockerEvent]
+
+  def run(container: String, command: String)(implicit driver: Driver): Observable[String]
+
+  def network(action: NetworkAction)(implicit driver: Driver): Unit
+
+  def volume(action: VolumeAction)(implicit driver: Driver): Unit
+}
+
 object DockerComposeTestKit {
   /**
    * TODO:
@@ -180,24 +200,6 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       }
 
     MatchResult(Await.result(result.future, Duration.Inf), s"failed to observe $expected events", "observed unexpected events")
-  }
-
-  trait DockerContainer {
-    def pause(container: String)(implicit driver: Driver): Unit
-
-    def unpause(container: String)(implicit driver: Driver): Unit
-
-    def stop()(implicit driver: Driver): Unit
-
-    def logging(implicit driver: Driver): Observable[LogEvent]
-
-    def events(implicit driver: Driver): Observable[DockerEvent]
-
-    def run(container: String, command: String)(implicit driver: Driver): Observable[String]
-
-    def network(action: NetworkAction)(implicit driver: Driver): Unit
-
-    def volume(action: VolumeAction)(implicit driver: Driver): Unit
   }
 
   /**
