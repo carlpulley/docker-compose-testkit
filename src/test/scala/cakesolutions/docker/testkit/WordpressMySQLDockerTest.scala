@@ -10,6 +10,7 @@ import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import org.scalatest._
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 trait RestAPIUtils {
@@ -54,6 +55,9 @@ object WordpressLogEvents {
 class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with RestAPIUtils {
   import DockerComposeTestKit._
   import WordpressLogEvents._
+
+
+  implicit override val testDuration: FiniteDuration = 60.seconds
 
   implicit val routeTestTimeout = RouteTestTimeout(testDuration)
 

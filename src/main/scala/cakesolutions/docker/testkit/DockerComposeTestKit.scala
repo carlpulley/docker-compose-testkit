@@ -32,7 +32,7 @@ import scala.util.{Failure, Success, Try}
 
 trait DockerContainer {
   import DockerComposeTestKit._
-  
+
   def pause(container: String)(implicit driver: Driver): Unit
 
   def unpause(container: String)(implicit driver: Driver): Unit
@@ -85,8 +85,6 @@ object DockerComposeTestKit {
     def execute(args: String*): String = s"$command ${args.mkString(" ")}"
   }
 
-  implicit val testDuration: FiniteDuration = 60.seconds
-
   implicit val shellDriver = new Driver {
     val docker = DockerCommand("docker")
     val compose = DockerComposeCommand("docker-compose")
@@ -115,7 +113,9 @@ trait DockerComposeTestKit extends PatienceConfiguration {
 
   import DockerComposeTestKit._
 
-  implicit override val patienceConfig = super.patienceConfig.copy(timeout = Span(testDuration.toSeconds, Seconds))
+  implicit def testDuration: FiniteDuration = 30.seconds
+
+  implicit override def patienceConfig = super.patienceConfig.copy(timeout = Span(testDuration.toSeconds, Seconds))
 
   private final case class Version(major: Int, minor: Int, patch: Int) extends Ordered[Version] {
     override def compare(that: Version): Int = {
