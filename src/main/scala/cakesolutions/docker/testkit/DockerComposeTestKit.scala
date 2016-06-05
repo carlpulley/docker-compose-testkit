@@ -65,7 +65,7 @@ object DockerComposeTestKit {
     def execute(args: String*): String = s"$command ${args.mkString(" ")}"
   }
 
-  implicit val testDuration: FiniteDuration = 30.seconds
+  implicit val testDuration: FiniteDuration = 60.seconds
 
   implicit val shellDriver = new Driver {
     val docker = DockerCommand("docker")
@@ -77,6 +77,7 @@ object DockerComposeTestKit {
       obs
         .scan(Vector.empty[LogEvent]) {
           case (state, entry: LogEvent) if eventMatches(state.length)(entry) =>
+            println(s"Matched: $entry")
             state :+ entry
           case (state, _) =>
             state
@@ -126,7 +127,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
   }
 
   protected def debug(message: String): Unit = {
-    if (true) {
+    if (false) {
       info(message)
     }
   }
