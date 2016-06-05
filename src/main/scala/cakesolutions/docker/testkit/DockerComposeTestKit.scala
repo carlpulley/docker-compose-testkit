@@ -225,7 +225,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
     }
     val pool: ExecutorService = Executors.newWorkStealingPool()
     val dockerCompose = createTempFile("docker-compose-", ".yaml")
-    val yamlFile = s"${System.getProperty("java.io.tmpdir")}${dockerCompose.getName}"
+    val yamlFile = s"${System.getProperty("java.io.tmpdir")}/${dockerCompose.getName}"
     val output = new PrintWriter(yamlFile)
     try {
       output.print(yaml)
