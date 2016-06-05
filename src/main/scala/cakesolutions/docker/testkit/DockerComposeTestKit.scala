@@ -207,13 +207,15 @@ trait DockerComposeTestKit extends PatienceConfiguration {
    * @return
    */
   protected def start(yaml: String)(implicit driver: Driver): DockerContainer = {
+    val composeVersion = Try(driver.compose.execute("--version").!!).toOption.flatMap(parseVersion)
     require(
-      Try(driver.compose.execute("--version").!!).toOption.flatMap(parseVersion).exists(_ >= Version(1, 7, 0)),
-      "Need docker-compose version >= 1.7.X"
+      composeVersion.exists(_ >= Version(1, 7, 0)),
+      s"Need docker-compose version >= 1.7.X (have $composeVersion)"
     )
+    val dockerVersion = Try(driver.docker.execute("--version").!!).toOption.flatMap(parseVersion)
     require(
-      Try(driver.docker.execute("--version").!!).toOption.flatMap(parseVersion).exists(_ >= Version(1, 11, 0)),
-      "Need docker version >= 1.11.X"
+      dockerVersion.exists(_ >= Version(1, 10, 0)),
+      s"Need docker version >= 1.10.X (have $dockerVersion)"
     )
 
     val errorLogger: ProcessLogger = ProcessLogger { err =>
