@@ -138,15 +138,14 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
 
       Post(s"http://$webHost:$webPort/wp-admin/install.php?step=1", languageForm) ~> restClient ~> check {
         status shouldEqual StatusCodes.OK
-println("here1")
+
         Post(s"http://$webHost:$webPort/wp-admin/install.php?step=2", step1Form) ~> restClient ~> check {
           status shouldEqual StatusCodes.OK
           responseAs[String] should include("<h1>Success!</h1>")
-println("here2")
+
           Get(s"http://$webHost:$webPort/") ~> restClient ~> check {
             status shouldEqual StatusCodes.OK
             responseAs[String] should include("Hello world!")
-println("here3")
           }
         }
       }

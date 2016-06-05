@@ -77,10 +77,8 @@ object DockerComposeTestKit {
       obs
         .scan(Vector.empty[LogEvent]) {
           case (state, entry) if eventMatches(state.length)(entry) =>
-            println(s"Matched: $entry")
             state :+ entry
-          case (state, entry) =>
-            println(s"Ignoring: $entry")
+          case (state, _) =>
             state
         }
         .filter(_.length == eventMatches.length)
@@ -128,7 +126,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
   }
 
   protected def debug(message: String): Unit = {
-    if (true) {
+    if (false) {
       info(message)
     }
   }
@@ -208,7 +206,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
    * @param yaml
    * @return
    */
-  protected def start(yaml: String)(implicit driver: Driver): DockerContainer = {
+  def start(yaml: String)(implicit driver: Driver): DockerContainer = {
     val composeVersion = Try(driver.compose.execute("--version").!!).toOption.flatMap(parseVersion)
     require(
       composeVersion.exists(_ >= Version(1, 7, 0)),
