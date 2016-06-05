@@ -57,7 +57,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
 
   implicit val routeTestTimeout = RouteTestTimeout(testDuration)
 
-  val webHost = "192.168.99.100"
+  val webHost = "127.0.0.1"
   val webPort = 8080
 
   var container: DockerContainer = _

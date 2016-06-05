@@ -65,7 +65,7 @@ object DockerComposeTestKit {
     def execute(args: String*): String = s"$command ${args.mkString(" ")}"
   }
 
-  implicit val testDuration: FiniteDuration = 60.seconds
+  implicit val testDuration: FiniteDuration = 30.seconds
 
   implicit val shellDriver = new Driver {
     val docker = DockerCommand("docker")
