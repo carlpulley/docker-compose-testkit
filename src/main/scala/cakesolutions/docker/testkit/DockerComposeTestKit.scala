@@ -76,10 +76,11 @@ object DockerComposeTestKit {
     def matchFilter(eventMatches: (LogEvent => Boolean)*): Observable[Vector[LogEvent]] = {
       obs
         .scan(Vector.empty[LogEvent]) {
-          case (state, entry: LogEvent) if eventMatches(state.length)(entry) =>
+          case (state, entry) if eventMatches(state.length)(entry) =>
             println(s"Matched: $entry")
             state :+ entry
-          case (state, _) =>
+          case (state, entry) =>
+            println(s"Ignoring: $entry")
             state
         }
         .filter(_.length == eventMatches.length)
@@ -127,7 +128,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
   }
 
   protected def debug(message: String): Unit = {
-    if (false) {
+    if (true) {
       info(message)
     }
   }
