@@ -1,9 +1,9 @@
 <!DOCTYPE html >
 <html>
         <head>
-          <title>DockerComposeTestKit - docker-compose-testkit 0.0.1-SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit</title>
-          <meta name="description" content="DockerComposeTestKit - docker - compose - testkit 0.0.1 - SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit" />
-          <meta name="keywords" content="DockerComposeTestKit docker compose testkit 0.0.1 SNAPSHOT cakesolutions.docker.testkit.DockerComposeTestKit" />
+          <title>DockerComposeTestKit - docker-compose-testkit 0.0.2-SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit</title>
+          <meta name="description" content="DockerComposeTestKit - docker - compose - testkit 0.0.2 - SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit" />
+          <meta name="keywords" content="DockerComposeTestKit docker compose testkit 0.0.2 SNAPSHOT cakesolutions.docker.testkit.DockerComposeTestKit" />
           <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
           
       <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
@@ -402,18 +402,18 @@
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
     </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit#observe" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="observe(expected:Int)(implicittimeout:scala.concurrent.duration.FiniteDuration):org.scalatest.matchers.Matcher[rx.lang.scala.Observable[Vector[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]]]"></a>
-      <a id="observe(Int)(FiniteDuration):Matcher[Observable[Vector[LogEvent]]]"></a>
+      <a id="observe(expected:Int)(implicittimeout:scala.concurrent.duration.FiniteDuration):org.scalatest.matchers.Matcher[rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]]"></a>
+      <a id="observe(Int)(FiniteDuration):Matcher[Observable[(Int,LogEvent)]]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">observe</span><span class="params">(<span name="expected">expected: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="timeout">timeout: <span class="extype" name="scala.concurrent.duration.FiniteDuration">FiniteDuration</span></span>)</span><span class="result">: <span class="extype" name="org.scalatest.matchers.Matcher">Matcher</span>[<span class="extype" name="rx.lang.scala.Observable">Observable</span>[<span class="extype" name="scala.Vector">Vector</span>[<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>]]]</span>
+        <span class="name">observe</span><span class="params">(<span name="expected">expected: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="timeout">timeout: <span class="extype" name="scala.concurrent.duration.FiniteDuration">FiniteDuration</span></span>)</span><span class="result">: <span class="extype" name="org.scalatest.matchers.Matcher">Matcher</span>[<span class="extype" name="rx.lang.scala.Observable">Observable</span>[(<span class="extype" name="scala.Int">Int</span>, <a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>)]]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit@observe(expected:Int)(implicittimeout:scala.concurrent.duration.FiniteDuration):org.scalatest.matchers.Matcher[rx.lang.scala.Observable[Vector[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]]]" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit@observe(expected:Int)(implicittimeout:scala.concurrent.duration.FiniteDuration):org.scalatest.matchers.Matcher[rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]]" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -471,18 +471,18 @@
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>ScaledTimeSpans</dd></dl></div>
     </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit#start" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="start(yaml:String)(implicitdriver:cakesolutions.docker.testkit.DockerComposeTestKit.Driver):cakesolutions.docker.testkit.DockerContainer"></a>
-      <a id="start(String)(Driver):DockerContainer"></a>
+      <a id="start(project:String,yaml:String)(implicitdriver:cakesolutions.docker.testkit.DockerComposeTestKit.Driver):cakesolutions.docker.testkit.DockerContainer"></a>
+      <a id="start(String,String)(Driver):DockerContainer"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">start</span><span class="params">(<span name="yaml">yaml: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="driver">driver: <a href="DockerComposeTestKit$$Driver.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.Driver">Driver</a></span>)</span><span class="result">: <a href="DockerContainer.html" class="extype" name="cakesolutions.docker.testkit.DockerContainer">DockerContainer</a></span>
+        <span class="name">start</span><span class="params">(<span name="project">project: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="yaml">yaml: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="driver">driver: <a href="DockerComposeTestKit$$Driver.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.Driver">Driver</a></span>)</span><span class="result">: <a href="DockerContainer.html" class="extype" name="cakesolutions.docker.testkit.DockerContainer">DockerContainer</a></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit@start(yaml:String)(implicitdriver:cakesolutions.docker.testkit.DockerComposeTestKit.Driver):cakesolutions.docker.testkit.DockerContainer" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit@start(project:String,yaml:String)(implicitdriver:cakesolutions.docker.testkit.DockerComposeTestKit.Driver):cakesolutions.docker.testkit.DockerContainer" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>

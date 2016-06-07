@@ -1,9 +1,9 @@
 <!DOCTYPE html >
 <html>
         <head>
-          <title>ObservableMatchFilter - docker-compose-testkit 0.0.1-SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter</title>
-          <meta name="description" content="ObservableMatchFilter - docker - compose - testkit 0.0.1 - SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter" />
-          <meta name="keywords" content="ObservableMatchFilter docker compose testkit 0.0.1 SNAPSHOT cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter" />
+          <title>ObservableMatchFilter - docker-compose-testkit 0.0.2-SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter</title>
+          <meta name="description" content="ObservableMatchFilter - docker - compose - testkit 0.0.2 - SNAPSHOT - cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter" />
+          <meta name="keywords" content="ObservableMatchFilter docker compose testkit 0.0.2 SNAPSHOT cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter" />
           <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
           
       <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
@@ -313,19 +313,70 @@
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
-    </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter#matchFilter" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="matchFilter(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[Vector[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]]"></a>
-      <a id="matchFilter((LogEvent)⇒Boolean*):Observable[Vector[LogEvent]]"></a>
+    </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter#matchFirst" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="matchFirst(eventMatch:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]"></a>
+      <a id="matchFirst((LogEvent)⇒Boolean):Observable[(Int,LogEvent)]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">matchFilter</span><span class="params">(<span name="eventMatches">eventMatches: (<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>) ⇒ <span class="extype" name="scala.Boolean">Boolean</span>*</span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[<span class="extype" name="scala.Vector">Vector</span>[<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>]]</span>
+        <span class="name">matchFirst</span><span class="params">(<span name="eventMatch">eventMatch: (<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>) ⇒ <span class="extype" name="scala.Boolean">Boolean</span></span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[(<span class="extype" name="scala.Int">Int</span>, <a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>)]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit$$ObservableMatchFilter@matchFilter(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[Vector[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]]" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit$$ObservableMatchFilter@matchFirst(eventMatch:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter#matchFirstOrdered" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="matchFirstOrdered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]"></a>
+      <a id="matchFirstOrdered((LogEvent)⇒Boolean*):Observable[(Int,LogEvent)]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">matchFirstOrdered</span><span class="params">(<span name="eventMatches">eventMatches: (<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>) ⇒ <span class="extype" name="scala.Boolean">Boolean</span>*</span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[(<span class="extype" name="scala.Int">Int</span>, <a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>)]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit$$ObservableMatchFilter@matchFirstOrdered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter#matchFirstUnordered" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="matchFirstUnordered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]"></a>
+      <a id="matchFirstUnordered((LogEvent)⇒Boolean*):Observable[(Int,LogEvent)]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">matchFirstUnordered</span><span class="params">(<span name="eventMatches">eventMatches: (<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>) ⇒ <span class="extype" name="scala.Boolean">Boolean</span>*</span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[(<span class="extype" name="scala.Int">Int</span>, <a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>)]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit$$ObservableMatchFilter@matchFirstUnordered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.DockerComposeTestKit.ObservableMatchFilter#matchUnordered" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="matchUnordered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]"></a>
+      <a id="matchUnordered((LogEvent)⇒Boolean*):Observable[(Int,LogEvent)]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">matchUnordered</span><span class="params">(<span name="eventMatches">eventMatches: (<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>) ⇒ <span class="extype" name="scala.Boolean">Boolean</span>*</span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[(<span class="extype" name="scala.Int">Int</span>, <a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>)]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerComposeTestKit$$ObservableMatchFilter@matchUnordered(eventMatches:cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent=&gt;Boolean*):rx.lang.scala.Observable[(Int,cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent)]" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
