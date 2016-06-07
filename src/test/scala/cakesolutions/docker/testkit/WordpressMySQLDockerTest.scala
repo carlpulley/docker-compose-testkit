@@ -24,17 +24,25 @@ trait RestAPIUtils {
         .map(RouteResult.Complete)
 
     response.onComplete {
-      case Success(http) if false =>
-        info(s"Successful HTTP query:\n      $httpRequest\n      ${http.response}")
-
-      case Success(_) =>
-        // Intentionally ignore
+      case Success(http) =>
+        alert(s"Successful HTTP query:\n      ${trimDisplay(httpRequest)}\n      ${trimDisplay(http.response)}")
 
       case Failure(exn) =>
-        alert(s"Failed to receive response to $httpRequest", Some(exn))
+        alert(s"Failed to receive response to ${trimDisplay(httpRequest)}", Some(exn))
     }
 
     response
+  }
+
+  private def trimDisplay[T](data: T): String = {
+    val displayWidth = 250
+    val display = data.toString.replaceAllLiterally("\n", "")
+
+    if (display.length < displayWidth) {
+      display
+    } else {
+      display.take(displayWidth) + " ..."
+    }
   }
 }
 
@@ -69,6 +77,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
   override def beforeAll(): Unit = {
     super.beforeAll()
     container = start(
+      "wordpress",
       s"""version: '2'
       |
       |services:
@@ -82,6 +91,8 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
       |    networks:
       |      - public
       |      - private
+      |    depends_on:
+      |      - db
       |  db:
       |    image: mariadb
       |    environment:
@@ -107,7 +118,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
   "Wordpress and MySQL networked application" - {
 
     "wordpress site is up and responding" in {
-      container.logging.matchFilter(startedEvent) should observe(1)
+      container.logging.matchFirst(startedEvent) should observe(1)
 
       Get(s"http://$webHost:$webPort/") ~> restClient ~> check {
         status shouldEqual StatusCodes.Found
@@ -120,7 +131,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      container.logging.matchFilter(accessEvent) should observe(1)
+      container.logging.matchFirst(accessEvent) should observe(1)
     }
 
     "wordpress hello-world site setup" in {
@@ -154,7 +165,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      container.logging.matchFilter(setupEvents: _*) should observe(setupEvents.length)
+      container.logging.matchFirstOrdered(setupEvents: _*) should observe(setupEvents.length)
     }
   }
 }

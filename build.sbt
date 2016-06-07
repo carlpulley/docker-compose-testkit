@@ -4,7 +4,7 @@ import Dependencies._
 
 name := "docker-compose-testkit"
 
-version := "0.0.1-SNAPSHOT"
+version := "0.0.2-SNAPSHOT"
 
 CommonProject.settings
 

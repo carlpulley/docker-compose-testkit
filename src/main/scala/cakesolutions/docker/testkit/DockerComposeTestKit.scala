@@ -2,8 +2,7 @@
 
 package cakesolutions.docker.testkit
 
-import java.io.File.createTempFile
-import java.io.PrintWriter
+import java.io.{File, PrintWriter}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.{ExecutorService, Executors}
@@ -91,16 +90,56 @@ object DockerComposeTestKit {
   }
 
   implicit class ObservableMatchFilter(obs: Observable[LogEvent]) {
-    def matchFilter(eventMatches: (LogEvent => Boolean)*): Observable[Vector[LogEvent]] = {
+    def matchFirst(eventMatch: LogEvent => Boolean): Observable[(Int, LogEvent)] = {
       obs
-        .scan(Vector.empty[LogEvent]) {
-          case (state, entry) if eventMatches(state.length)(entry) =>
-            state :+ entry
-          case (state, _) =>
-            state
+        .map { entry =>
+          if (eventMatch(entry)) {
+            Some(entry)
+          } else {
+            None
+          }
         }
-        .filter(_.length == eventMatches.length)
+        .collect { case Some(entry) => (0, entry) }
         .first
+    }
+
+    def matchFirstOrdered(eventMatches: (LogEvent => Boolean)*): Observable[(Int, LogEvent)] = {
+      obs
+        .scan[(Option[(Int, LogEvent)], Int)]((None, 0)) {
+          case ((_, matchedEventsCount), entry) if matchedEventsCount < eventMatches.length && eventMatches(matchedEventsCount)(entry) =>
+            (Some((matchedEventsCount, entry)), matchedEventsCount + 1)
+          case ((_, matchedEventsCount), _) =>
+            (None, matchedEventsCount)
+        }
+        .collect { case (Some(indexedEntry), _) => indexedEntry }
+    }
+
+    def matchFirstUnordered(eventMatches: (LogEvent => Boolean)*): Observable[(Int, LogEvent)] = {
+      obs
+        .scan[(Option[(Int, LogEvent)], Set[Int])]((None, Set.empty)) {
+          case ((_, matchedEventIndexes), entry) =>
+            val index = eventMatches.indexWhere(_(entry))
+            if (index >= 0 && ! matchedEventIndexes.contains(index)) {
+              (Some((index, entry)), matchedEventIndexes + index)
+            } else {
+              (None, matchedEventIndexes)
+            }
+        }
+        .collect { case (Some(indexedEntry), _) => indexedEntry }
+    }
+
+    def matchUnordered(eventMatches: (LogEvent => Boolean)*): Observable[(Int, LogEvent)] = {
+      obs
+        .scan[(Option[(Int, LogEvent)], Set[Int])]((None, Set.empty)) {
+          case ((_, matchedEventIndexes), entry) =>
+            val index = eventMatches.indexWhere(_(entry))
+            if (index >= 0) {
+              (Some((index, entry)), matchedEventIndexes + index)
+            } else {
+              (None, matchedEventIndexes)
+            }
+        }
+        .collect { case (Some(indexedEntry), _) => indexedEntry }
     }
   }
 }
@@ -158,44 +197,32 @@ trait DockerComposeTestKit extends PatienceConfiguration {
    * @param timeout
    * @return
    */
-  def observe(expected: Int)(implicit timeout: FiniteDuration) = Matcher { (obs: Observable[Vector[LogEvent]]) =>
+  def observe(expected: Int)(implicit timeout: FiniteDuration) = Matcher { (obs: Observable[(Int, LogEvent)]) =>
     require(expected >= 0)
 
     val result = Promise[Boolean]
 
     obs
-      .first
-      .timeout(timeout)
+      .take(timeout)
+      .toVector
       .materialize
       .foreach {
-        case OnCompleted if result.isCompleted =>
-          // No work to do
-          debug("Received OnCompleted and promise is completed")
-
         case OnCompleted =>
-          val errMsg = "Received OnCompleted with no other events emitted"
-          alert(errMsg)
-          new TestFailedException(Some(errMsg), None, 0)
-
-        case event if result.isCompleted =>
-          val errMsg = s"Received $event after the test completed"
-          alert(errMsg)
-          new TestFailedException(Some(errMsg), None, 0)
-
-        case OnNext(events) =>
-          events.zipWithIndex.foreach { case (item, index) => info(s"Observation $index: $item") }
-          result.success(events.length == expected)
-
-        case OnError(_: TimeoutException) =>
-          debug("Test timed out - completing promise with false")
-          result.success(false)
-
-        case OnError(_: NoSuchElementException) =>
-          info("Observed no elements")
+          // No work to do
+        case OnNext(matches) if matches.isEmpty =>
+          alert("Matched no elements")
           result.success(expected == 0)
-
+        case OnNext(matches) =>
+          matches.foreach {
+            case (index, entry) =>
+              alert(s"Matched at $index: $entry")
+          }
+          result.success(matches.length == expected)
+        case OnError(_: NoSuchElementException) =>
+          alert("Matched no elements")
+          result.success(expected == 0)
         case OnError(exn) =>
-          alert("Received OnError", Some(exn))
+          alert(s"Failed to observe matches - reason: $exn")
           result.failure(exn)
       }
 
@@ -208,7 +235,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
    * @param yaml
    * @return
    */
-  def start(yaml: String)(implicit driver: Driver): DockerContainer = {
+  def start(project: String, yaml: String)(implicit driver: Driver): DockerContainer = {
     val composeVersion = Try(driver.compose.execute("--version").!!).toOption.flatMap(parseVersion)
     require(
       composeVersion.exists(_ >= Version(1, 7, 0)),
@@ -220,14 +247,14 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       s"Need docker version >= 1.11.X (have $dockerVersion)"
     )
 
+    val nullLogger: ProcessLogger = ProcessLogger { err => }
     val errorLogger: ProcessLogger = ProcessLogger { err =>
       if (err.length > 0 && err.charAt(0) != 27.toChar) {
         alert(err)
       }
     }
     val pool: ExecutorService = Executors.newWorkStealingPool()
-    val dockerCompose = createTempFile("docker-compose-", ".yaml")
-    val yamlFile = s"${sys.env("HOME")}/${dockerCompose.getName}"
+    val yamlFile = s"target/$project.yaml"
     val output = new PrintWriter(yamlFile)
     try {
       output.print(yaml)
@@ -235,7 +262,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       output.close()
     }
 
-    val yamlCheck = Try(driver.compose.execute("-f", yamlFile, "config", "-q").!!(errorLogger))
+    val yamlCheck = Try(driver.compose.execute("-p", project, "-f", yamlFile, "config", "-q").!!(errorLogger))
     require(yamlCheck.isSuccess, yamlCheck)
 
     implicit val formats = DefaultFormats
@@ -243,7 +270,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
     new DockerContainer {
       private[this] var isRunning: Boolean = true
 
-      debug(driver.compose.execute("-f", yamlFile, "up", "-d").!!(errorLogger))
+      debug(driver.compose.execute("-p", project, "-f", yamlFile, "up", "-d").!!(errorLogger))
 
       /**
        * TODO:
@@ -253,7 +280,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       def pause(container: String)(implicit driver: Driver): Unit = {
         require(isRunning)
 
-        debug(driver.compose.execute("-f", yamlFile, "pause", container).!!(errorLogger))
+        debug(driver.compose.execute("-p", project, "-f", yamlFile, "pause", container).!!(errorLogger))
       }
 
       /**
@@ -264,15 +291,16 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       def unpause(container: String)(implicit driver: Driver): Unit = {
         require(isRunning)
 
-        debug(driver.compose.execute("-f", yamlFile, "unpause", container).!!(errorLogger))
+        debug(driver.compose.execute("-p", project, "-f", yamlFile, "unpause", container).!!(errorLogger))
       }
 
       /**
        * TODO:
        */
       def stop()(implicit driver: Driver): Unit = {
-        debug(driver.compose.execute("-f", yamlFile, "down").!!(errorLogger))
-        assert(dockerCompose.delete())
+        (driver.compose.execute("-p", project, "-f", yamlFile, "logs", "-t", "--no-color") #> new File(s"target/$project.log")).!
+        driver.compose.execute("-p", project, "-f", yamlFile, "unpause").!(nullLogger)
+        debug(driver.compose.execute("-p", project, "-f", yamlFile, "down").!!(errorLogger))
         pool.shutdown()
         isRunning = false
       }
@@ -285,12 +313,12 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       def logging(implicit driver: Driver): Observable[LogEvent] = {
         require(isRunning)
 
-        Observable.defer(Observable[LogEvent] { subscriber =>
+        Observable[LogEvent] { subscriber =>
           try {
             pool.execute(new Runnable {
               def run(): Unit = {
                 blocking {
-                  for (line <- driver.compose.execute("-f", yamlFile, "logs", "-f", "-t", "--no-color").lineStream_!(errorLogger)) {
+                  for (line <- driver.compose.execute("-p", project, "-f", yamlFile, "logs", "-f", "-t", "--no-color").lineStream_!(errorLogger)) {
                     debug(line)
                     val logLineRE = "^\\s*([a-zA-Z0-9_-]+)\\s+\\|\\s+(\\d+-\\d+-\\d+T\\d+:\\d+:\\d+.\\d+Z)\\s*(.*)\\z".r
                     val logLineMatch = logLineRE.findFirstMatchIn(line)
@@ -313,7 +341,8 @@ trait DockerComposeTestKit extends PatienceConfiguration {
               alert("Log parsing error", Some(exn))
               subscriber.onError(exn)
           }
-        })
+        }
+        .cache
       }
 
       /**
@@ -325,12 +354,12 @@ trait DockerComposeTestKit extends PatienceConfiguration {
       def events(implicit driver: Driver): Observable[DockerEvent] = {
         require(isRunning)
 
-        Observable.defer(Observable[DockerEvent] { subscriber =>
+        Observable[DockerEvent] { subscriber =>
           try {
             pool.execute(new Runnable {
               def run(): Unit = {
                 blocking {
-                  for (line <- driver.compose.execute("-f", yamlFile, "events", "--json").lineStream_!(errorLogger)) {
+                  for (line <- driver.compose.execute("-p", project, "-f", yamlFile, "events", "--json").lineStream_!(errorLogger)) {
                     debug(line)
                     Try(parse(line)) match {
                       case Success(json) =>
@@ -349,7 +378,8 @@ trait DockerComposeTestKit extends PatienceConfiguration {
               alert("Event parsing error", Some(exn))
               subscriber.onError(exn)
           }
-        })
+        }
+        .cache
       }
 
       /**
@@ -398,7 +428,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
           case DisconnectNetwork(network, container) =>
             debug(driver.docker.execute("network", "disconnect", network, container).!!(errorLogger))
 
-          case RemoveNetwork(network, networks) =>
+          case RemoveNetwork(network, networks @ _*) =>
             debug(driver.docker.execute("network", "rm", network, networks.mkString(" ")).!!(errorLogger))
         }
       }
@@ -412,7 +442,7 @@ trait DockerComposeTestKit extends PatienceConfiguration {
         require(isRunning)
 
         action match {
-          case RemoveVolume(volume, volumes) =>
+          case RemoveVolume(volume, volumes @ _*) =>
             debug(driver.docker.execute("volume", "rm", volume, volumes.mkString(" ")).!!(errorLogger))
         }
       }

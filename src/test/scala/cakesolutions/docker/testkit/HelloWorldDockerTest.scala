@@ -12,6 +12,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
 
   before {
     container = start(
+      "helloworld",
       """basic:
         |  image: hello-world
         |""".stripMargin
@@ -27,7 +28,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
       val events =
         container
           .logging
-          .matchFilter(entry => entry.message.startsWith("Hello from Docker"))
+          .matchFirst(entry => entry.message.startsWith("Hello from Docker"))
 
       events should observe(1)
     }
@@ -36,7 +37,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
       val events =
         container
           .logging
-          .matchFilter(entry => entry.message.startsWith("Invalid message"))
+          .matchFirst(entry => entry.message.startsWith("Invalid message"))
 
       events should observe(0)(3.seconds)
     }
@@ -45,7 +46,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
       val events =
         container
           .logging
-          .matchFilter(
+          .matchFirstOrdered(
             entry => entry.message.startsWith("1. The Docker client contacted the Docker daemon"),
             entry => entry.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image"),
             entry => entry.message.startsWith("3. The Docker daemon created a new container"),
