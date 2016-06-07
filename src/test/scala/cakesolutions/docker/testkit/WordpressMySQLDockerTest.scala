@@ -60,7 +60,7 @@ object WordpressLogEvents {
   )
 }
 
-class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with RestAPIUtils {
+class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with BeforeAndAfter with DockerComposeTestKit with RestAPIUtils {
   import DockerComposeTestKit._
   import WordpressLogEvents._
 
@@ -74,8 +74,9 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
 
   var container: DockerContainer = _
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
+//  override def beforeAll(): Unit = {
+//    super.beforeAll()
+  before {
     container = start(
       "wordpress",
       s"""version: '2'
@@ -107,9 +108,10 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
     )
   }
 
-  override def afterAll(): Unit = {
+//  override def afterAll(): Unit = {
+  after {
     container.stop()
-    super.afterAll()
+//    super.afterAll()
   }
 
   alert("WARNING: the underlying MySQL container implementation can consume Docker volume resources")
