@@ -25,18 +25,18 @@ trait RestAPIUtils {
 
     response.onComplete {
       case Success(http) =>
-        alert(s"Successful HTTP query:\n      ${trimDisplay(httpRequest)}\n      ${trimDisplay(http.response)}")
+        alert(s"Successful HTTP query:\n      ${trimDisplay(httpRequest.toString)}\n      ${trimDisplay(http.response.toString)}")
 
       case Failure(exn) =>
-        alert(s"Failed to receive response to ${trimDisplay(httpRequest)}", Some(exn))
+        alert(s"Failed to receive response to ${trimDisplay(httpRequest.toString)}", Some(exn))
     }
 
     response
   }
 
-  private def trimDisplay[T](data: T): String = {
+  private def trimDisplay(data: String): String = {
     val displayWidth = 250
-    val display = data.toString.replaceAllLiterally("\n", "")
+    val display = data.replaceAllLiterally("\n", "")
 
     if (display.length < displayWidth) {
       display
@@ -150,6 +150,8 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
           "weblog_title" -> HttpEntity("Hello World")
         )
       }
+
+      container.logging.matchFirst(startedEvent) should observe(1)
 
       Post(s"http://$webHost:$webPort/wp-admin/install.php?step=1", languageForm) ~> restClient ~> check {
         status shouldEqual StatusCodes.OK
