@@ -7,27 +7,32 @@ import scala.concurrent.duration._
 
 class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with BeforeAndAfter with DockerComposeTestKit {
   import DockerComposeTestKit._
+  import LoggingMatchers._
 
-  var container: DockerContainer = _
+  implicit val testDuration = 30.seconds
+
+  var compose: DockerCompose = _
+  var helloworld: DockerImage = _
 
   before {
-    container = start(
+    compose = up(
       "helloworld",
       """basic:
         |  image: hello-world
         |""".stripMargin
     )
+    helloworld = compose.service("basic").docker.head
   }
 
   after {
-    container.stop()
+    compose.down()
   }
 
   "Hello-world Docker Container" - {
     "expected greeting" in {
       val events =
-        container
-          .logging
+        helloworld
+          .logging()
           .matchFirst(entry => entry.message.startsWith("Hello from Docker"))
 
       events should observe(1)
@@ -35,17 +40,17 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
 
     "unexpected log line" in {
       val events =
-        container
-          .logging
+        helloworld
+          .logging()
           .matchFirst(entry => entry.message.startsWith("Invalid message"))
 
-      events should observe(0)(3.seconds)
+      events should observe(0)(3.seconds, implicitly[TestLogger])
     }
 
     "can match multiple consecutive logging lines" in {
       val events =
-        container
-          .logging
+        helloworld
+          .logging()
           .matchFirstOrdered(
             entry => entry.message.startsWith("1. The Docker client contacted the Docker daemon"),
             entry => entry.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image"),

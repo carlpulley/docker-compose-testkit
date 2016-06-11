@@ -4,7 +4,7 @@ import Dependencies._
 
 name := "docker-compose-testkit"
 
-version := "0.0.2-SNAPSHOT"
+version := "0.0.3-SNAPSHOT"
 
 CommonProject.settings
 
@@ -20,5 +20,6 @@ libraryDependencies ++= Seq(
   akka.http.testkit % "test",
   json4s,
   reactiveX,
-  scalatest
+  scalatest,
+  yaml
 )

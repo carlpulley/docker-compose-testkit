@@ -48,36 +48,36 @@ trait RestAPIUtils {
 
 object WordpressLogEvents {
   val startedEvent =
-    (entry: LogEvent) => entry.image.contains("wordpress_1") && entry.message.endsWith("[core:notice] [pid 1] AH00094: Command line: 'apache2 -D FOREGROUND'")
+    (entry: LogEvent) => entry.message.endsWith("[core:notice] [pid 1] AH00094: Command line: 'apache2 -D FOREGROUND'")
 
   val accessEvent =
-    (entry: LogEvent) => entry.image.contains("wordpress_1") && entry.message.matches(".* \"GET /wp-admin/install.php HTTP/1.1\" .*")
+    (entry: LogEvent) => entry.message.matches(".* \"GET /wp-admin/install.php HTTP/1.1\" .*")
 
   val setupEvents = Seq(
-    (entry: LogEvent) => entry.image.contains("wordpress_1") && entry.message.matches(".* \"POST /wp-admin/install.php\\?step=1 HTTP/1.1\" .*"),
-    (entry: LogEvent) => entry.image.contains("wordpress_1") && entry.message.matches(".* \"POST /wp-admin/install.php\\?step=2 HTTP/1.1\" .*"),
-    (entry: LogEvent) => entry.image.contains("wordpress_1") && entry.message.matches(".* \"GET / HTTP/1.1\" .*")
+    (entry: LogEvent) => entry.message.matches(".* \"POST /wp-admin/install.php\\?step=1 HTTP/1.1\" .*"),
+    (entry: LogEvent) => entry.message.matches(".* \"POST /wp-admin/install.php\\?step=2 HTTP/1.1\" .*"),
+    (entry: LogEvent) => entry.message.matches(".* \"GET / HTTP/1.1\" .*")
   )
 }
 
-class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with BeforeAndAfter with DockerComposeTestKit with RestAPIUtils {
+class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with RestAPIUtils {
   import DockerComposeTestKit._
+  import LoggingMatchers._
   import WordpressLogEvents._
 
-
-  implicit override val testDuration: FiniteDuration = 60.seconds
-
+  implicit val testDuration = 60.seconds
   implicit val routeTestTimeout = RouteTestTimeout(testDuration)
 
   val webHost = "127.0.0.1"
   val webPort = 8080
 
-  var container: DockerContainer = _
+  var compose: DockerCompose = _
+  var wordpress: DockerImage = _
+  var mysql: DockerImage = _
 
-//  override def beforeAll(): Unit = {
-//    super.beforeAll()
-  before {
-    container = start(
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    compose = up(
       "wordpress",
       s"""version: '2'
       |
@@ -106,12 +106,13 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
       |  private:
       """.stripMargin
     )
+    wordpress = compose.service("wordpress").docker.head
+    mysql = compose.service("db").docker.head
   }
 
-//  override def afterAll(): Unit = {
-  after {
-    container.stop()
-//    super.afterAll()
+  override def afterAll(): Unit = {
+    compose.down()
+    super.afterAll()
   }
 
   alert("WARNING: the underlying MySQL container implementation can consume Docker volume resources")
@@ -120,7 +121,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
   "Wordpress and MySQL networked application" - {
 
     "wordpress site is up and responding" in {
-      container.logging.matchFirst(startedEvent) should observe(1)
+      wordpress.logging().matchFirst(startedEvent) should observe(1)
 
       Get(s"http://$webHost:$webPort/") ~> restClient ~> check {
         status shouldEqual StatusCodes.Found
@@ -133,7 +134,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      container.logging.matchFirst(accessEvent) should observe(1)
+      wordpress.logging().matchFirst(accessEvent) should observe(1)
     }
 
     "wordpress hello-world site setup" in {
@@ -153,7 +154,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-      container.logging.matchFirst(startedEvent) should observe(1)
+      wordpress.logging().matchFirst(startedEvent) should observe(1)
 
       Post(s"http://$webHost:$webPort/wp-admin/install.php?step=1", languageForm) ~> restClient ~> check {
         status shouldEqual StatusCodes.OK
@@ -169,7 +170,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      container.logging.matchFirstOrdered(setupEvents: _*) should observe(setupEvents.length)
+      wordpress.logging().matchFirstOrdered(setupEvents: _*) should observe(setupEvents.length)
     }
   }
 }

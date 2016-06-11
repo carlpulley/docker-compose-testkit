@@ -17,4 +17,5 @@ object Dependencies {
   val json4s = "org.json4s" %% "json4s-native" % "3.3.0"
   val reactiveX = "io.reactivex" %% "rxscala" % "0.26.1"
   val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
+  val yaml = "net.jcazevedo" %% "moultingyaml" % "0.2"
 }
