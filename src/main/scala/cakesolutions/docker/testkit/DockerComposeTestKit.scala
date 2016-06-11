@@ -47,7 +47,7 @@ object DockerComposeTestKit {
 
   implicit val log: TestLogger = new TestLogger {
     override def debug(message: String): Unit = {
-      //println(s"DEBUG: $message")
+      println(s"DEBUG: $message")
     }
 
     override def warn(message: String): Unit = {
@@ -131,8 +131,6 @@ trait DockerComposeTestKit {
     require(yamlConfig.isSuccess, yamlConfig.toString)
 
     driver.compose.execute("-p", project, "-f", yamlFile, "up", "-d").!!(log.stderr)
-
-    val pool: ExecutorService = Executors.newWorkStealingPool()
 
     new DockerCompose(project, yamlFile, yamlConfig.get)(pool, driver, log)
   }
