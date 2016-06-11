@@ -14,8 +14,10 @@ object LoggingMatchers {
       obs
         .map { entry =>
           if (eventMatch(entry)) {
+            println(s"DEBUGGY: matched $entry")
             Some(entry)
           } else {
+            println(s"DEBUGGY: ignoring $entry")
             None
           }
         }
