@@ -26,6 +26,7 @@ before_install:
 script:
   - docker version
   - docker-compose version
+  - sbt ++$TRAVIS_SCALA_VERSION clean docker:publish-local
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test
   - sbt coverageReport
   - sbt coverageAggregate
