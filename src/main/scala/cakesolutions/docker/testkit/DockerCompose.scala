@@ -1,23 +1,24 @@
 package cakesolutions.docker.testkit
 
+import java.io.File
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit._
+import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
 import net.jcazevedo.moultingyaml._
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import rx.lang.scala.{Observable, Subscriber}
+import rx.lang.scala.Observable
 
 import scala.concurrent._
 import scala.sys.process._
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
-final class DockerCompose private[testkit] (project: String, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) {
+final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) {
   require(Set("services", "networks", "volumes").subsetOf(config.fields.keySet.map(_.asInstanceOf[YamlString].value)))
 
-  val protocol = new DockerComposeProtocol(project, yamlFile)
+  val protocol = new DockerComposeProtocol(projectId, yamlFile)
 
   import protocol._
 
@@ -44,22 +45,21 @@ final class DockerCompose private[testkit] (project: String, yamlFile: String, c
   lazy val docker: Map[String, DockerImage] =
     Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(id)): _*)
 
-  def scale(service: String, size: Int): Unit = ??? // TODO:
-
   def down(): Unit = {
-    driver.compose.execute("-p", project, "-f", yamlFile, "down").!!(log.stderr)
+    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "logs", "--no-color") #> new File(s"target/$projectId/$projectName/docker-compose.log") !! log.devNull
+    for {
+      name <- service.keys
+      image <- service(name).docker
+    } {
+      driver.docker.execute("logs", image.id) #> new File(s"target/$projectId/$projectName/$name-${image.id}.log") !! log.devNull
+    }
+    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "down").!!(log.stderr)
+    log.info(s"Down $projectName [$projectId]")
   }
 
-  private implicit class ToDockerEvent(sub: Subscriber[DockerEvent]) {
-    def dockerEvent(line: String): Unit = {
-      log.debug(line)
-      Try(parse(line)) match {
-        case Success(json) =>
-          sub.onNext(json.extract[DockerEvent])
-        case Failure(exn) =>
-          sub.onError(exn)
-      }
-    }
+  private def toDockerEvent(line: String): DockerEvent = {
+    log.debug(line)
+    parse(line).extract[DockerEvent]
   }
 
   def events(): Observable[DockerEvent] = {
@@ -70,8 +70,8 @@ final class DockerCompose private[testkit] (project: String, yamlFile: String, c
             blocking {
               driver
                 .compose
-                .execute("-p", project, "-f", yamlFile, "events", "--json")
-                .run(ProcessLogger(out => subscriber.dockerEvent(out), err => subscriber.dockerEvent(err)))
+                .execute("-p", projectId.toString, "-f", yamlFile, "events", "--json")
+                .run(ProcessLogger(out => subscriber.onNext(toDockerEvent(out)), err => subscriber.onNext(toDockerEvent(err))))
                 .exitValue()
               subscriber.onCompleted()
             }

@@ -1,5 +1,7 @@
 package cakesolutions.docker.testkit
 
+import cakesolutions.docker.testkit.filters.ObservableFilter
+import cakesolutions.docker.testkit.matchers.ObservableMatcher
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
 
@@ -7,20 +9,25 @@ import scala.concurrent.duration._
 
 class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with BeforeAndAfter with DockerComposeTestKit {
   import DockerComposeTestKit._
-  import LoggingMatchers._
+  import ObservableFilter._
+  import ObservableMatcher._
 
   implicit val testDuration = 30.seconds
+
+  val yaml = DockerComposeString(
+    """version: '2'
+    |
+    |services:
+    |  basic:
+    |    image: hello-world
+    """.stripMargin
+  )
 
   var compose: DockerCompose = _
   var helloworld: DockerImage = _
 
   before {
-    compose = up(
-      "helloworld",
-      """basic:
-        |  image: hello-world
-        |""".stripMargin
-    )
+    compose = up("helloworld", yaml)
     helloworld = compose.service("basic").docker.head
   }
 
@@ -35,7 +42,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
           .logging()
           .matchFirst(entry => entry.message.startsWith("Hello from Docker"))
 
-      events should observe(1)
+      events should observe[LogEvent](1)
     }
 
     "unexpected log line" in {
@@ -44,7 +51,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
           .logging()
           .matchFirst(entry => entry.message.startsWith("Invalid message"))
 
-      events should observe(0)(3.seconds, implicitly[TestLogger])
+      events should observe[LogEvent](0)(implicitly[Manifest[LogEvent]], 3.seconds, log)
     }
 
     "can match multiple consecutive logging lines" in {
@@ -58,7 +65,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
             entry => entry.message.startsWith("4. The Docker daemon streamed that output to the Docker client")
           )
 
-      events should observe(4)
+      events should observe[LogEvent](4)
     }
   }
 

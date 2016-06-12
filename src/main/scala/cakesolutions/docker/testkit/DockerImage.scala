@@ -5,13 +5,14 @@ import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent}
+import cakesolutions.docker.testkit.logging.TestLogger
 import rx.lang.scala.Observable
 
 import scala.concurrent._
 import scala.sys.process._
 import scala.util.control.NonFatal
 
-final class DockerImage private[testkit] (id: String)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) extends DockerInspection(id) {
+final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) extends DockerInspection(id) {
   private def toLogEvent(line: String): LogEvent = {
     log.debug(line)
     // 2016-06-11T10:10:00.154101534Z log-message
@@ -20,7 +21,7 @@ final class DockerImage private[testkit] (id: String)(implicit pool: ExecutorSer
     // TODO: introduce ability to parse JSON out of log messages
     if (logLineMatch.isDefined) {
       val time = logLineMatch.get.group(1)
-      val message = logLineMatch.get.group(2)
+      val message = logLineMatch.get.group(2).trim
       LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), message)
     } else {
       LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), line)
@@ -53,19 +54,17 @@ final class DockerImage private[testkit] (id: String)(implicit pool: ExecutorSer
     .cache
   }
 
-  def exec(command: String): Observable[String] = {
+  def exec(command: String*): Observable[String] = {
     Observable[String] { subscriber =>
       try {
         pool.execute(new Runnable {
           def run(): Unit = {
             blocking {
-              val exit =
-                driver
-                  .docker
-                  .execute("exec", "-it", id, command)
-                  .run(ProcessLogger(out => subscriber.onNext(out), err => subscriber.onNext(err)))
-                  .exitValue()
-              subscriber.onNext(s"sys.exit: $exit")
+              driver
+                .docker
+                .execute("exec" +: "-t" +: id +: command: _*)
+                .run(ProcessLogger(out => subscriber.onNext(out), err => subscriber.onNext(err)))
+                .exitValue()
               subscriber.onCompleted()
             }
           }

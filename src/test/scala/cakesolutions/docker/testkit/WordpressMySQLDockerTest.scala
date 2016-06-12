@@ -7,6 +7,8 @@ import akka.http.scaladsl.server.{Route, RouteResult}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.stream.ActorMaterializer
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
+import cakesolutions.docker.testkit.filters.ObservableFilter
+import cakesolutions.docker.testkit.matchers.ObservableMatcher
 import org.scalatest._
 
 import scala.concurrent.ExecutionContext
@@ -62,7 +64,8 @@ object WordpressLogEvents {
 
 class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with RestAPIUtils {
   import DockerComposeTestKit._
-  import LoggingMatchers._
+  import ObservableFilter._
+  import ObservableMatcher._
   import WordpressLogEvents._
 
   implicit val testDuration = 60.seconds
@@ -71,41 +74,42 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
   val webHost = "127.0.0.1"
   val webPort = 8080
 
+  val yaml = DockerComposeString(
+    s"""version: '2'
+     |
+     |services:
+     |  wordpress:
+     |    image: wordpress
+     |    environment:
+     |      WORDPRESS_DB_HOST: db:3306
+     |      WORDPRESS_DB_PASSWORD: password
+     |    ports:
+     |      - $webPort:80
+     |    networks:
+     |      - public
+     |      - private
+     |    depends_on:
+     |      - db
+     |  db:
+     |    image: mariadb
+     |    environment:
+     |      MYSQL_ROOT_PASSWORD: password
+     |    networks:
+     |      - private
+     |
+     |networks:
+     |  public:
+     |  private:
+     """.stripMargin
+  )
+
   var compose: DockerCompose = _
   var wordpress: DockerImage = _
   var mysql: DockerImage = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    compose = up(
-      "wordpress",
-      s"""version: '2'
-      |
-      |services:
-      |  wordpress:
-      |    image: wordpress
-      |    environment:
-      |      WORDPRESS_DB_HOST: db:3306
-      |      WORDPRESS_DB_PASSWORD: password
-      |    ports:
-      |      - $webPort:80
-      |    networks:
-      |      - public
-      |      - private
-      |    depends_on:
-      |      - db
-      |  db:
-      |    image: mariadb
-      |    environment:
-      |      MYSQL_ROOT_PASSWORD: password
-      |    networks:
-      |      - private
-      |
-      |networks:
-      |  public:
-      |  private:
-      """.stripMargin
-    )
+    compose = up("wordpress", yaml)
     wordpress = compose.service("wordpress").docker.head
     mysql = compose.service("db").docker.head
   }
@@ -121,7 +125,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
   "Wordpress and MySQL networked application" - {
 
     "wordpress site is up and responding" in {
-      wordpress.logging().matchFirst(startedEvent) should observe(1)
+      wordpress.logging().matchFirst(startedEvent) should observe[LogEvent](1)
 
       Get(s"http://$webHost:$webPort/") ~> restClient ~> check {
         status shouldEqual StatusCodes.Found
@@ -134,7 +138,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      wordpress.logging().matchFirst(accessEvent) should observe(1)
+      wordpress.logging().matchFirst(accessEvent) should observe[LogEvent](1)
     }
 
     "wordpress hello-world site setup" in {
@@ -154,7 +158,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-      wordpress.logging().matchFirst(startedEvent) should observe(1)
+      wordpress.logging().matchFirst(startedEvent) should observe[LogEvent](1)
 
       Post(s"http://$webHost:$webPort/wp-admin/install.php?step=1", languageForm) ~> restClient ~> check {
         status shouldEqual StatusCodes.OK
@@ -170,7 +174,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
       }
 
-      wordpress.logging().matchFirstOrdered(setupEvents: _*) should observe(setupEvents.length)
+      wordpress.logging().matchFirstOrdered(setupEvents: _*) should observe[LogEvent](setupEvents.length)
     }
   }
 }

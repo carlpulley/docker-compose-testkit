@@ -4,22 +4,32 @@ import Dependencies._
 
 name := "docker-compose-testkit"
 
-version := "0.0.3-SNAPSHOT"
+val buildVersion = "0.0.3-SNAPSHOT"
 
-CommonProject.settings
+lazy val root = (project in file(".")).
+  settings(CommonProject.settings: _*).
+  settings(ScalaDoc.settings: _*).
+  settings(Publish.settings: _*).
+  settings(version := buildVersion).
+  settings(
+    resolvers += Resolver.jcenterRepo,
+    libraryDependencies ++= Seq(
+      akka.actor % "test",
+      akka.cluster % "test",
+      akka.http.core % "test",
+      akka.http.experimental % "test",
+      akka.http.testkit % "test",
+      json4s.native,
+      json4s.jackson,
+      reactiveX,
+      scalatest,
+      yaml
+    )
+  ).
+  aggregate(
+    clusterNode
+  )
 
-ScalaDoc.settings
-
-Publish.settings
-
-resolvers += Resolver.jcenterRepo
-
-libraryDependencies ++= Seq(
-  akka.http.core % "test",
-  akka.http.experimental % "test",
-  akka.http.testkit % "test",
-  json4s,
-  reactiveX,
-  scalatest,
-  yaml
-)
+lazy val clusterNode = (project in file("akka-cluster-node")).
+  settings(CommonProject.settings: _*).
+  settings(version := buildVersion)

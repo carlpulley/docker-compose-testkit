@@ -1,4 +1,4 @@
-package cakesolutions.docker.testkit
+package cakesolutions.docker.testkit.logging
 
 import scala.sys.process.ProcessLogger
 
