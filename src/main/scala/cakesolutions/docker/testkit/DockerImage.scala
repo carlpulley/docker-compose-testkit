@@ -13,19 +13,23 @@ import scala.sys.process._
 import scala.util.control.NonFatal
 
 final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
-  private def toLogEvent(line: String): LogEvent = {
-    require(line != null)
+  private def toLogEvent(rawLine: String): LogEvent = {
+    val line = rawLine.trim
     log.debug(line)
-    // 2016-06-11T10:10:00.154101534Z log-message
-    val logLineRE = "^\\s*(\\d+\\-\\d+\\-\\d+T\\d+:\\d+:\\d+\\.\\d+Z)\\s+(.*)\\s*\\z".r
-    val logLineMatch = logLineRE.findFirstMatchIn(line)
-    // TODO: introduce ability to parse JSON out of log messages
-    if (logLineMatch.isDefined) {
-      val time = logLineMatch.get.group(1)
-      val message = logLineMatch.get.group(2).trim
-      LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), message)
+    if (line.nonEmpty) {
+      // 2016-06-11T10:10:00.154101534Z log-message
+      val logLineRE = "^\\s*(\\d+\\-\\d+\\-\\d+T\\d+:\\d+:\\d+\\.\\d+Z)\\s+(.*)\\s*\\z".r
+      val logLineMatch = logLineRE.findFirstMatchIn(line)
+      // TODO: introduce ability to parse JSON out of log messages
+      if (logLineMatch.isDefined) {
+        val time = logLineMatch.get.group(1)
+        val message = logLineMatch.get.group(2).trim
+        LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), message)
+      } else {
+        LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), line)
+      }
     } else {
-      LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), line)
+      LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), "")
     }
   }
 
@@ -39,7 +43,7 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
                 driver
                   .docker
                   .execute("logs", "-f", "-t", id)
-                  .run(ProcessLogger(out => subscriber.onNext(toLogEvent(out)), err => subscriber.onNext(toLogEvent(err))))
+                  .run(ProcessLogger(out => { val x = toLogEvent(out); println(s"DEBUGGY: $x"); subscriber.onNext(x) }, err => { val x = toLogEvent(err); println(s"DEBUGGY: $x"); subscriber.onNext(x) }))
                   .exitValue()
               subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), s"sys.exit: $exit"))
               subscriber.onCompleted()
