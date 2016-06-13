@@ -24,6 +24,8 @@ before_install:
   - sudo mv docker-compose /usr/local/bin
 
 script:
+  - cat /proc/cpuinfo
+  - cat /proc/meminfo
   - docker version
   - docker-compose version
   - sbt ++$TRAVIS_SCALA_VERSION clean docker:publish-local
