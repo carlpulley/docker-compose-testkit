@@ -5,15 +5,16 @@ import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent}
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.Logger
 import rx.lang.scala.Observable
 
 import scala.concurrent._
 import scala.sys.process._
 import scala.util.control.NonFatal
 
-final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) extends DockerInspection(id) {
+final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
   private def toLogEvent(line: String): LogEvent = {
+    require(line != null)
     log.debug(line)
     // 2016-06-11T10:10:00.154101534Z log-message
     val logLineRE = "^\\s*(\\d+\\-\\d+\\-\\d+T\\d+:\\d+:\\d+\\.\\d+Z)\\s+(.*)\\s*\\z".r

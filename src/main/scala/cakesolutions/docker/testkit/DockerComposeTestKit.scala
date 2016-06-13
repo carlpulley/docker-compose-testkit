@@ -6,7 +6,7 @@ import java.time.ZonedDateTime
 import java.util.concurrent.{ExecutorService, Executors}
 import java.util.{TimeZone, UUID}
 
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.Logger
 import net.jcazevedo.moultingyaml._
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -108,28 +108,6 @@ object DockerComposeTestKit {
     def newId = new ProjectId(UUID.randomUUID())
   }
 
-  implicit val log: TestLogger = new TestLogger {
-    override def debug(message: String): Unit = {
-      println(s"DEBUG: $message")
-    }
-
-    override def warn(message: String): Unit = {
-      println(s"WARN: $message")
-    }
-
-    override def error(message: String, reason: Throwable): Unit = {
-      if (reason == null) {
-        println(s"ERROR: $message")
-      } else {
-        println(s"ERROR: $message - reason: $reason")
-      }
-    }
-
-    override def info(message: String): Unit = {
-      println(s"INFO: $message")
-    }
-  }
-
 }
 
 trait DockerComposeTestKit {
@@ -165,7 +143,7 @@ trait DockerComposeTestKit {
 
   val pool: ExecutorService = Executors.newWorkStealingPool()
 
-  def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: TestLogger): DockerCompose = {
+  def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: Logger): DockerCompose = {
     val composeVersion = Try(driver.compose.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)
     require(
       composeVersion.exists(v => (Version.apply _).tupled(v) >= Version(1, 7, 0)),

@@ -5,12 +5,12 @@ package yaml
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, ProjectId}
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.Logger
 import net.jcazevedo.moultingyaml._
 
 import scala.sys.process._
 
-private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: String)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) extends DefaultYamlProtocol {
+private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DefaultYamlProtocol {
 
   final case class Service(name: String) {
     def docker: Vector[DockerImage] = {

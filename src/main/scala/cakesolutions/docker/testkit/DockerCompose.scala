@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit._
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
 import net.jcazevedo.moultingyaml._
 import org.json4s._
@@ -15,7 +15,7 @@ import scala.concurrent._
 import scala.sys.process._
 import scala.util.control.NonFatal
 
-final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: TestLogger) {
+final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: Logger) {
   require(Set("services", "networks", "volumes").subsetOf(config.fields.keySet.map(_.asInstanceOf[YamlString].value)))
 
   val protocol = new DockerComposeProtocol(projectId, yamlFile)

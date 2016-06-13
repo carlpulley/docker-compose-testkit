@@ -1,52 +1,15 @@
 package cakesolutions.docker.testkit
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpEntity, HttpHeader, Multipart, StatusCodes}
-import akka.http.scaladsl.server.{Route, RouteResult}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import akka.stream.ActorMaterializer
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.filters.ObservableFilter
+import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
+import cakesolutions.docker.testkit.clients.RestAPIClient
 import org.scalatest._
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-
-trait RestAPIUtils {
-  this: FreeSpecLike =>
-
-  def restClient(implicit system: ActorSystem, materializer: ActorMaterializer, ec: ExecutionContext): Route = { ctx =>
-    val httpRequest = ctx.request
-    val response =
-      Http()
-        .singleRequest(httpRequest)
-        .map(RouteResult.Complete)
-
-    response.onComplete {
-      case Success(http) =>
-        alert(s"Successful HTTP query:\n      ${trimDisplay(httpRequest.toString)}\n      ${trimDisplay(http.response.toString)}")
-
-      case Failure(exn) =>
-        alert(s"Failed to receive response to ${trimDisplay(httpRequest.toString)}", Some(exn))
-    }
-
-    response
-  }
-
-  private def trimDisplay(data: String): String = {
-    val displayWidth = 250
-    val display = data.replaceAllLiterally("\n", "")
-
-    if (display.length < displayWidth) {
-      display
-    } else {
-      display.take(displayWidth) + " ..."
-    }
-  }
-}
 
 object WordpressLogEvents {
   val startedEvent =
@@ -62,10 +25,11 @@ object WordpressLogEvents {
   )
 }
 
-class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with RestAPIUtils {
+class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
   import ObservableFilter._
   import ObservableMatcher._
+  import RestAPIClient._
   import WordpressLogEvents._
 
   implicit val testDuration = 60.seconds

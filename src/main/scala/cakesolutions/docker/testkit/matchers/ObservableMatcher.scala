@@ -1,6 +1,6 @@
 package cakesolutions.docker.testkit.matchers
 
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.Logger
 import org.scalatest.matchers.{MatchResult, Matcher}
 import rx.lang.scala.Notification.{OnCompleted, OnError, OnNext}
 import rx.lang.scala.Observable
@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
 object ObservableMatcher {
-  def observe[T : Manifest](expected: Int)(implicit timeout: FiniteDuration, log: TestLogger) = Matcher { (obs: Observable[(Int, T)]) =>
+  def observe[T : Manifest](expected: Int)(implicit timeout: FiniteDuration, log: Logger) = Matcher { (obs: Observable[(Int, T)]) =>
     require(expected >= 0)
 
     val result = Promise[Boolean]
@@ -38,6 +38,6 @@ object ObservableMatcher {
           result.failure(exn)
       }
 
-    MatchResult(Await.result(result.future, timeout), s"failed to observe $expected events", "observed unexpected events")
+    MatchResult(Await.result(result.future, timeout * 1.25), s"failed to observe $expected events", "observed unexpected events")
   }
 }

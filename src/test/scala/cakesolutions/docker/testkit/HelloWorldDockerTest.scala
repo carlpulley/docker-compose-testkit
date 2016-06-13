@@ -1,13 +1,14 @@
 package cakesolutions.docker.testkit
 
 import cakesolutions.docker.testkit.filters.ObservableFilter
+import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
 
 import scala.concurrent.duration._
 
-class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with BeforeAndAfter with DockerComposeTestKit {
+class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with BeforeAndAfter with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
   import ObservableFilter._
   import ObservableMatcher._
