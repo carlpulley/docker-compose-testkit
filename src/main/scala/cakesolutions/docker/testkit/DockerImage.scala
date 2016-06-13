@@ -10,10 +10,11 @@ import rx.lang.scala.Observable
 
 import scala.concurrent._
 import scala.sys.process._
+import scala.util.{Success, Failure, Try}
 import scala.util.control.NonFatal
 
 final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
-  private def toLogEvent(rawLine: String): LogEvent = {
+  private def toLogEvent(rawLine: String): Try[LogEvent] = Try {
     val line = rawLine.trim
     log.debug(line)
     if (line.nonEmpty) {
@@ -43,7 +44,16 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
                 driver
                   .docker
                   .execute("logs", "-f", "-t", id)
-                  .run(ProcessLogger(out => { val x = toLogEvent(out); println(s"DEBUGGY: $x"); subscriber.onNext(x) }, err => { val x = toLogEvent(err); println(s"DEBUGGY: $x"); subscriber.onNext(x) }))
+                  .run(ProcessLogger(
+                    out => toLogEvent(out) match {
+                      case Success(value) => subscriber.onNext(value)
+                      case Failure(exn) => subscriber.onError(exn)
+                    },
+                    err => toLogEvent(err) match {
+                      case Success(value) => subscriber.onNext(value)
+                      case Failure(exn) => subscriber.onError(exn)
+                    }
+                  ))
                   .exitValue()
               subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), s"sys.exit: $exit"))
               subscriber.onCompleted()
@@ -56,7 +66,6 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
           subscriber.onError(exn)
       }
     }
-    .cache
   }
 
   def exec(command: String*): Observable[String] = {
@@ -80,7 +89,6 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
           subscriber.onError(exn)
       }
     }
-    .cache
   }
 
   def stats(command: String): Observable[String] = {
@@ -107,7 +115,6 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
           subscriber.onError(exn)
       }
     }
-    .cache
   }
 
   def export(out: String): Unit = {
