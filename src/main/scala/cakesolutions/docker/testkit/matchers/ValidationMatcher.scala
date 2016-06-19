@@ -2,7 +2,7 @@ package cakesolutions.docker.testkit.matchers
 
 import cakesolutions.docker.testkit.logging.Logger
 import org.scalatest.matchers.{MatchResult, Matcher}
-import rx.lang.scala.Observable
+import monix.reactive.Observable
 
 import scala.concurrent.duration.FiniteDuration
 

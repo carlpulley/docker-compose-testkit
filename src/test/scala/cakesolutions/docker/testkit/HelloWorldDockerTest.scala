@@ -3,6 +3,8 @@ package cakesolutions.docker.testkit
 import cakesolutions.docker.testkit.filters.ObservableFilter
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
+import monix.execution.Scheduler
+import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
 
@@ -43,7 +45,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
           .logging()
           .matchFirst(entry => entry.message.startsWith("Hello from Docker"))
 
-      events should observe[LogEvent](1)
+      events should legacyObserve[LogEvent](1)
     }
 
     "unexpected log line" in {
@@ -52,7 +54,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
           .logging()
           .matchFirst(entry => entry.message.startsWith("Invalid message"))
 
-      events should observe[LogEvent](0)(implicitly[Manifest[LogEvent]], 3.seconds, log)
+      events should legacyObserve[LogEvent](0)(implicitly[Manifest[LogEvent]], 3.seconds, implicitly[Scheduler], log)
     }
 
     "can match multiple consecutive logging lines" in {
@@ -66,7 +68,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
             entry => entry.message.startsWith("4. The Docker daemon streamed that output to the Docker client")
           )
 
-      events should observe[LogEvent](4)
+      events should legacyObserve[LogEvent](4)
     }
   }
 

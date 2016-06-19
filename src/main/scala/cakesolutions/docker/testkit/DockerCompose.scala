@@ -6,10 +6,11 @@ import java.util.concurrent.ExecutorService
 import cakesolutions.docker.testkit.DockerComposeTestKit._
 import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
+import monix.execution.{Scheduler, Cancelable}
+import monix.reactive.{Observable, OverflowStrategy}
 import net.jcazevedo.moultingyaml._
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import rx.lang.scala.Observable
 
 import scala.concurrent._
 import scala.sys.process._
@@ -62,25 +63,45 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
     parse(line).extract[DockerEvent]
   }
 
-  def events(): Observable[DockerEvent] = {
-    Observable[DockerEvent] { subscriber =>
+  def events()(implicit scheduler: Scheduler): Observable[DockerEvent] = {
+    Observable.create[DockerEvent](OverflowStrategy.Unbounded) { subscriber =>
+      val cancelP = Promise[Unit]
+
       try {
         pool.execute(new Runnable {
           def run(): Unit = {
             blocking {
-              driver
-                .compose
-                .execute("-p", projectId.toString, "-f", yamlFile, "events", "--json")
-                .run(ProcessLogger(out => subscriber.onNext(toDockerEvent(out)), err => subscriber.onNext(toDockerEvent(err))))
-                .exitValue()
-              subscriber.onCompleted()
+              val process =
+                driver
+                  .compose
+                  .execute("-p", projectId.toString, "-f", yamlFile, "events", "--json")
+                  .run(ProcessLogger(out => subscriber.onNext(toDockerEvent(out)), err => subscriber.onNext(toDockerEvent(err))))
+
+              cancelP.future.foreach(_ => process.destroy())
+
+              process.exitValue()
+              if (! cancelP.isCompleted) {
+                cancelP.failure(new CancellationException)
+              }
+              subscriber.onComplete()
             }
           }
         })
       } catch {
         case NonFatal(exn) =>
           log.error("Event parsing error", exn)
+          if (! cancelP.isCompleted) {
+            cancelP.failure(exn)
+          }
           subscriber.onError(exn)
+      }
+
+      new Cancelable {
+        override def cancel(): Unit = {
+          if (! cancelP.isCompleted) {
+            cancelP.success(())
+          }
+        }
       }
     }
     .cache

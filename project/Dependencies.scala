@@ -29,6 +29,14 @@ object Dependencies {
 
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.7"
   val reactiveX = "io.reactivex" %% "rxscala" % "0.26.1"
+
+  object monix {
+    private val version = "2.0-RC6"
+
+    val core = "io.monix" %% "monix" % "2.0-RC6"
+    val reactive = "io.monix" %% "monix-reactive" % version
+  }
+
   val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
   val yaml = "net.jcazevedo" %% "moultingyaml" % "0.2"
 }

@@ -1,25 +1,27 @@
 package cakesolutions.docker.testkit.matchers
 
 import cakesolutions.docker.testkit.logging.Logger
+import monix.execution.Scheduler
 import org.scalatest.matchers.{MatchResult, Matcher}
-import rx.lang.scala.Notification.{OnCompleted, OnError, OnNext}
-import rx.lang.scala.Observable
+import monix.reactive.Notification.{OnComplete, OnError, OnNext}
+import monix.reactive.Observable
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
 object ObservableMatcher {
-  def observe[T : Manifest](expected: Int)(implicit timeout: FiniteDuration, log: Logger) = Matcher { (obs: Observable[(Int, T)]) =>
+  def legacyObserve[T : Manifest](expected: Int)(implicit timeout: FiniteDuration, scheduler: Scheduler, log: Logger) = Matcher { (obs: Observable[(Int, T)]) =>
     require(expected >= 0)
 
     val result = Promise[Boolean]
 
     obs
-      .take(timeout)
-      .toVector
+      .takeByTimespan(timeout)
+      .foldLeftF(Vector.empty[(Int, T)]) { case (matches, value) => matches :+ value }
+      .firstOrElseF(Vector.empty)
       .materialize
       .foreach {
-        case OnCompleted =>
+        case OnComplete =>
         // No work to do
         case OnNext(matches) if matches.isEmpty =>
           log.info("Matched no elements")
@@ -30,9 +32,6 @@ object ObservableMatcher {
               log.info(s"Matched at $index: $entry")
           }
           result.success(matches.length == expected)
-        case OnError(_: NoSuchElementException) =>
-          log.info("Matched no elements")
-          result.success(expected == 0)
         case OnError(exn) =>
           log.error("Matching stream failed", exn)
           result.failure(exn)

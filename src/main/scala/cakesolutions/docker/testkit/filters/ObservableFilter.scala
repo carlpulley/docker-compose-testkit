@@ -1,6 +1,8 @@
 package cakesolutions.docker.testkit.filters
 
-import rx.lang.scala.Observable
+import monix.reactive.Observable
+
+import scala.concurrent.duration.FiniteDuration
 
 object ObservableFilter {
   implicit class ObservableMatchFilter[T](obs: Observable[T]) {
@@ -14,7 +16,7 @@ object ObservableFilter {
           }
         }
         .collect { case Some(entry) => (0, entry) }
-        .first
+        .headF
     }
 
     def matchFirstOrdered(eventMatches: (T => Boolean)*): Observable[(Int, T)] = {
@@ -54,6 +56,15 @@ object ObservableFilter {
           }
       }
         .collect { case (Some(indexedEntry), _) => indexedEntry }
+    }
+
+    def andThen[S](next: Observable[S], debug: Boolean = false)(implicit timeout: FiniteDuration): Observable[S] = {
+      next
+        .delaySubscriptionWith {
+          obs
+            .takeByTimespan(timeout)
+            .foldLeftF(Vector.empty[T]) { case (matches, value) => matches :+ value }
+        }
     }
   }
 }

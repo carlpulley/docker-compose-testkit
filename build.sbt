@@ -21,7 +21,8 @@ lazy val root = (project in file(".")).
       akka.http.testkit % "test",
       json4s.native,
       json4s.jackson,
-      reactiveX,
+      monix.core,
+      monix.reactive,
       scalatest,
       yaml
     )
