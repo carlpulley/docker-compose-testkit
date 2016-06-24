@@ -30,26 +30,38 @@ object ObservableMatcher {
 
       actions.foreach {
         case act @ When(state: S, stateTimeout) =>
-          when(state, stateTimeout)(act.transition andThen {
-            case Goto(state: S, null, null) =>
+          when(state, stateTimeout)(({
+            case event: FSM.Event[D] if act.transition.isDefinedAt(event) =>
+              (event, act.transition(event))
+          }: PartialFunction[FSM.Event[D], (FSM.Event[D], Action)]) andThen {
+            case (event, Goto(state: S, null, null)) =>
+              outerLog.info(s"Matched: $event")
               goto(state)
-            case Goto(state: S, null, max) =>
+            case (event, Goto(state: S, null, max)) =>
+              outerLog.info(s"Matched: $event")
               goto(state).forMax(max)
-            case Goto(state: S, data: D, null) =>
+            case (event, Goto(state: S, data: D, null)) =>
+              outerLog.info(s"Matched: $event")
               goto(state).using(data)
-            case Goto(state: S, data: D, max) =>
+            case (event, Goto(state: S, data: D, max)) =>
+              outerLog.info(s"Matched: $event")
               goto(state).using(data).forMax(max)
-            case Stay =>
+            case (event, Stay) =>
               stay()
-            case Accept =>
+            case (event, Accept) =>
+              outerLog.info(s"Matched: $event")
               stop()
-            case Fail(reason) =>
+            case (event, Fail(reason)) =>
+              outerLog.error(s"Failed with $event - reason: $reason")
               stop(Failure(reason))
-          })
+          }
+        )
       }
 
       whenUnhandled {
-        case Event(_, _) =>
+        case Event(StateTimeout, _) =>
+          stop(Failure("State timeout"))
+        case _ =>
           stay()
       }
 
@@ -58,7 +70,8 @@ object ObservableMatcher {
           result.success(true)
         case StopEvent(FSM.Shutdown, _, _) =>
           result.success(false)
-        case StopEvent(FSM.Failure(_), _, _) =>
+        case StopEvent(FSM.Failure(reason), state, data) =>
+          outerLog.error(s"FSM matching failed in state $state using data $data - reason: $reason")
           result.success(false)
       }
 
