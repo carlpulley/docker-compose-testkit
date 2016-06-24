@@ -1,10 +1,10 @@
 package cakesolutions.docker.testkit
 
-import cakesolutions.docker.testkit.filters.ObservableFilter
+import akka.actor.ActorSystem
+import akka.actor.FSM.Event
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
 import monix.execution.Scheduler
-import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
 
@@ -12,10 +12,11 @@ import scala.concurrent.duration._
 
 class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with BeforeAndAfter with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
-  import ObservableFilter._
   import ObservableMatcher._
 
   implicit val testDuration = 30.seconds
+  implicit val actorSystem = ActorSystem("HelloWorldDockerTest")
+  implicit val scheduler = Scheduler(actorSystem.dispatcher)
 
   val yaml = DockerComposeString(
     """version: '2'
@@ -40,35 +41,45 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
 
   "Hello-world Docker Container" - {
     "expected greeting" in {
-      val events =
-        helloworld
-          .logging()
-          .matchFirst(entry => entry.message.startsWith("Hello from Docker"))
-
-      events should legacyObserve[LogEvent](1)
+      helloworld.logging() should observe[LogEvent, Int, Unit](
+        InitialState(0, ()),
+        When(0) {
+          case Event(event: LogEvent, _) if event.message.startsWith("Hello from Docker") =>
+            Accept
+        }
+      )
     }
 
     "unexpected log line" in {
-      val events =
-        helloworld
-          .logging()
-          .matchFirst(entry => entry.message.startsWith("Invalid message"))
-
-      events should legacyObserve[LogEvent](0)(implicitly[Manifest[LogEvent]], 3.seconds, implicitly[Scheduler], log)
+      helloworld.logging() should observe[LogEvent, Int, Unit](
+        InitialState(0, ()),
+        When(0, 3.seconds) {
+          case Event(event: LogEvent, _) if event.message.startsWith("Invalid message") =>
+            Accept
+        }
+      )
     }
 
     "can match multiple consecutive logging lines" in {
-      val events =
-        helloworld
-          .logging()
-          .matchFirstOrdered(
-            entry => entry.message.startsWith("1. The Docker client contacted the Docker daemon"),
-            entry => entry.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image"),
-            entry => entry.message.startsWith("3. The Docker daemon created a new container"),
-            entry => entry.message.startsWith("4. The Docker daemon streamed that output to the Docker client")
-          )
-
-      events should legacyObserve[LogEvent](4)
+      helloworld.logging() should observe[LogEvent, Int, Unit](
+        InitialState(0, ()),
+        When(0) {
+          case Event(event: LogEvent, _) if event.message.startsWith("1. The Docker client contacted the Docker daemon") =>
+            Goto(1)
+        },
+        When(1) {
+          case Event(event: LogEvent, _) if event.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image") =>
+            Goto(2)
+        },
+        When(2) {
+          case Event(event: LogEvent, _) if event.message.startsWith("3. The Docker daemon created a new container") =>
+            Goto(3)
+        },
+        When(3) {
+          case Event(event: LogEvent, _) if event.message.startsWith("4. The Docker daemon streamed that output to the Docker client") =>
+            Accept
+        }
+      )
     }
   }
 

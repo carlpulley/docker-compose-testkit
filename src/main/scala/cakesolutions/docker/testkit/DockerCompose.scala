@@ -23,8 +23,6 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
 
   import protocol._
 
-  implicit val formats = DefaultFormats
-
   lazy val service: Map[String, Service] =
     config.fields(YamlString("services")).asYamlObject.fields.map { case (section, defn) =>
       val name = YamlString("name")
@@ -44,7 +42,7 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
       value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[Volume]
     }
   lazy val docker: Map[String, DockerImage] =
-    Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(id)): _*)
+    Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id)): _*)
 
   def down(): Unit = {
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "logs", "--no-color") #> new File(s"target/$projectId/$projectName/docker-compose.log") !! log.devNull

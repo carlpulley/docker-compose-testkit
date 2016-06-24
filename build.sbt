@@ -14,7 +14,7 @@ lazy val root = (project in file(".")).
   settings(
     resolvers += Resolver.jcenterRepo,
     libraryDependencies ++= Seq(
-      akka.actor % "test",
+      akka.actor,
       akka.cluster % "test",
       akka.http.core % "test",
       akka.http.experimental % "test",

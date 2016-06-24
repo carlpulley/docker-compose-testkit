@@ -1,0 +1,4 @@
+FROM $BASE
+RUN apt-get update
+RUN apt-get install -y fiu-utils
+ENTRYPOINT fiu-run -x

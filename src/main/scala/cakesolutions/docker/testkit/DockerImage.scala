@@ -4,9 +4,10 @@ import java.time.format.DateTimeFormatter
 import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.ExecutorService
 
-import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent}
+import cakesolutions.docker.testkit.DockerComposeTestKit.{ProjectId, Driver, LogEvent}
 import cakesolutions.docker.testkit.logging.Logger
-import monix.execution.{Scheduler, Cancelable}
+import cakesolutions.docker.testkit.network.ImpairmentSpec
+import monix.execution.{Cancelable, Scheduler}
 import monix.reactive.{Observable, OverflowStrategy}
 
 import scala.concurrent._
@@ -14,7 +15,9 @@ import scala.sys.process._
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-final class DockerImage private[testkit] (val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
+final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
+  import ImpairmentSpec._
+
   private def toLogEvent(rawLine: String): Try[LogEvent] = Try {
     val line = rawLine.trim
     log.debug(line)
@@ -219,5 +222,44 @@ final class DockerImage private[testkit] (val id: String)(implicit pool: Executo
 
   def restart(): Unit = {
     log.debug(driver.docker.execute("restart", id).!!(log.stderr))
+  }
+
+  def network(networks: String*) = new {
+    // TODO: only allow if NET_ADMIN capability is enabled
+    def qdisc(impairments: Impairment*): Unit = {
+      val spec = impairments.map(_.command).mkString(" ")
+
+      networks.foreach { name =>
+        val fqNetworkName = s"${projectId.toString.replaceAll("-", "")}_${name}"
+        val dockerContainers = driver.docker.execute("network", "inspect", "-f", "'{{ range $key, $value := .Containers }}{{ $key }} {{end}}'", fqNetworkName).!!.split(" ")
+        dockerContainers.foreach { container =>
+          val nic = driver.docker.execute("inspect", "-f", "'{{ range $key, $value := .NetworkSettings.Networks }}{{ $key }} {{end}}'", container).!!.split(" ").indexOf(fqNetworkName)
+
+          driver
+            .docker
+            .execute("exec", "-t", id, "tc", "qdisc", "replace", "dev", s"eth$nic", "root", "netem", spec).!!
+        }
+      }
+    }
+
+    def partition(): Unit = {
+      networks.foreach { name =>
+        driver
+          .docker
+          .execute("network", s"${projectId.toString.replaceAll("-", "")}_${name}", "disconnect", id).!!
+      }
+    }
+
+    def reset(): Unit = {
+      networks.foreach { name =>
+        driver
+          .docker
+          .execute("network", s"${projectId.toString.replaceAll("-", "")}_${name}", "connect", id).!!
+      }
+      // TODO: determine NICs correctly!
+      driver
+        .docker
+        .execute("exec", "-t", id, "tc", "qdisc", "del", "dev", "eth0", "root").!!
+    }
   }
 }

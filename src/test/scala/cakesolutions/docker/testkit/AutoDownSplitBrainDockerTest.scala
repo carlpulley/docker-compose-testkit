@@ -98,12 +98,12 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         .andThen(leftNodeA.members.matchFirstUnordered { st =>
           Set("left-node-A", "left-node-B", "right-node-A", "right-node-B").subsetOf(st.members.flatMap(_.address.host))
         })
-        .andThen( // FIXME:
-          List(leftNodeB, rightNodeA, rightNodeB)
-            .map(_.logging())
-            .fold(Observable.empty) { case (obs1, obs2) => obs1.mergeDelayError(obs2) }
-            .matchUnordered(welcomeMessage)
-        )
+//        .andThen( // FIXME:
+//          List(leftNodeB, rightNodeA, rightNodeB)
+//            .map(_.logging())
+//            .fold(Observable.empty) { case (obs1, obs2) => obs1.mergeDelayError(obs2) }
+//            .matchUnordered(welcomeMessage)
+//        )
     }
 
     "GC simulation should remove a node from cluster" ignore {
@@ -111,20 +111,19 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       // TODO: wait for auto-downing timeout period
       rightNodeA.unpause()
 
-      // TODO: validate downing and removal of nodeE
-      //container.scale("right-node", -1)
+      // TODO: validate downing and removal of rightNodeA
     }
 
     "network partition forms two clusters" ignore {
-      //container.network(RemoveNetwork("middle"))
+      compose.network("middle").partition()
 
-      // TODO: validate formation of 2 clusters with 2 members each
+      // TODO: validate formation of 2 clusters with 2 left and 1 right member each
     }
 
     "new nodes still allowed to join one side of a network partition" ignore {
-      //container.scale("right-node", 1)
+      rightNodeA.start()
 
-      // TODO: validate that nodeE joins right side of cluster (now with 3 members)
+      // TODO: validate that rightNodeA joins right side of cluster (now with 2 members)
     }
   }
 
