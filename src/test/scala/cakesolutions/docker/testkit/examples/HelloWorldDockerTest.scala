@@ -15,7 +15,7 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
   import DockerComposeTestKit._
   import ObservableMatcher._
 
-  implicit val testDuration = 30.seconds
+  implicit val testDuration = 60.seconds
   implicit val actorSystem = ActorSystem("HelloWorldDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
 

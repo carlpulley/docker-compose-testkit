@@ -19,7 +19,6 @@ object ObservableMatcher {
   final case class Stay[Data](using: Data = null) extends Action
 
   final case class InitialState[State, Data](state: State, data: Data, timeout: FiniteDuration = null)
-
   final case class When[State, Data](state: State, stateTimeout: FiniteDuration = null)(val transition: PartialFunction[FSM.Event[Data], Action])
 
   def observe[E : Manifest, S, D](initial: InitialState[S, D], actions: When[S, D]*)(implicit testDuration: FiniteDuration, system: ActorSystem, outerLog: Logger) = Matcher { (obs: Observable[E]) =>
