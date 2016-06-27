@@ -51,7 +51,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   import LossyNetworkDockerTest._
   import ObservableMatcher._
 
-  implicit val testDuration = 90.seconds
+  implicit val testDuration = 2.minutes
   implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
   override implicit val patienceConfig = super.patienceConfig.copy(timeout = testDuration)
@@ -133,7 +133,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
           Stay(using = data :+ event)
 
         case Event(event: Ping, data) =>
-          note("warmup completed")
+          note("warmup")
           Goto(1, using = Vector.empty[Ping])
       },
       When(1) {

@@ -23,7 +23,8 @@ object AutoDownSplitBrainDockerTest {
     event.message.endsWith(s"Welcome from [akka.tcp://SBRTestCluster@$leaderNode:$akkaPort]")
   }
 
-  final case class Probes(probes: Observable[LogEvent]*)
+  final case class NodeSensor(log: Observable[LogEvent])
+  final case class Probes(probes: NodeSensor*)
   final case class InstrumentedCluster(left: Probes, right: Probes)
 }
 
