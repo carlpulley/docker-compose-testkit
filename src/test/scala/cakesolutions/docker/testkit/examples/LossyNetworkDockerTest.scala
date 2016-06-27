@@ -133,18 +133,8 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
           Stay(using = data :+ event)
 
         case Event(event: Ping, data) =>
-          check(data :+ event) { meanSeqDiff => meanTime =>
-            if (0 <= meanSeqDiff &&
-              meanSeqDiff <= 1.5 &&
-              meanTime <= 500000.nanosecond
-            ) {
-              note("normal network")
-              compose.network("common").qdisc(Delay())
-              Goto(1, using = Vector.empty[Ping])
-            } else {
-              Fail(s"$meanSeqDiff and $meanTime")
-            }
-          }
+          note("warmup completed")
+          Goto(1, using = Vector.empty[Ping])
       },
       When(1) {
         case Event(event: Ping, data) if data.length < dataSize =>
@@ -152,9 +142,9 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
         case Event(event: Ping, data) =>
           check(data :+ event) { meanSeqDiff => meanTime =>
-            if (100.milliseconds <= meanTime) {
-              note("delayed network")
-              compose.network("common").qdisc(Loss("random 50%"))
+            if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
+              note("normal network")
+              compose.network("common").qdisc(Delay())
               Goto(2, using = Vector.empty[Ping])
             } else {
               Fail(s"$meanSeqDiff and $meanTime")
@@ -167,9 +157,9 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
         case Event(event: Ping, data) =>
           check(data :+ event) { meanSeqDiff => meanTime =>
-            if (2 <= meanSeqDiff) {
-              note("lossy network")
-              compose.network("common").reset()
+            if (100.milliseconds <= meanTime) {
+              note("delayed network")
+              compose.network("common").qdisc(Loss("random 50%"))
               Goto(3, using = Vector.empty[Ping])
             } else {
               Fail(s"$meanSeqDiff and $meanTime")
@@ -182,9 +172,22 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
         case Event(event: Ping, data) =>
           check(data :+ event) { meanSeqDiff => meanTime =>
-            if (0 <= meanSeqDiff &&
-              meanSeqDiff <= 1.5 &&
-              meanTime <= 500000.nanosecond) {
+            if (2 <= meanSeqDiff) {
+              note("lossy network")
+              compose.network("common").reset()
+              Goto(4, using = Vector.empty[Ping])
+            } else {
+              Fail(s"$meanSeqDiff and $meanTime")
+            }
+          }
+      },
+      When(4) {
+        case Event(event: Ping, data) if data.length < dataSize =>
+          Stay(using = data :+ event)
+
+        case Event(event: Ping, data) =>
+          check(data :+ event) { meanSeqDiff => meanTime =>
+            if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
               note("network reset")
               Accept
             } else {

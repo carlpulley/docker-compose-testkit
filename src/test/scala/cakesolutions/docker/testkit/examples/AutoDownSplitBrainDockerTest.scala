@@ -3,6 +3,7 @@ package cakesolutions.docker.testkit.examples
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import monix.reactive.Observable
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
 import scala.concurrent.duration._
@@ -21,6 +22,9 @@ object AutoDownSplitBrainDockerTest {
   val welcomeMessage: LogEvent => Boolean = { event =>
     event.message.endsWith(s"Welcome from [akka.tcp://SBRTestCluster@$leaderNode:$akkaPort]")
   }
+
+  final case class Probes(probes: Observable[LogEvent]*)
+  final case class InstrumentedCluster(left: Probes, right: Probes)
 }
 
 class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
@@ -85,6 +89,16 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   // TODO: add scaling commands to DockerComposeTestKit
   "Distributed Akka cluster with auto-downing" - {
     "should automatically seed and form" ignore {
+//      val sensorNet = InstrumentedCluster(
+//        left = Probes(
+//          leftNodeA.logging(),
+//          leftNodeB.logging()
+//        ),
+//        right = Probes(
+//          rightNodeA.logging(),
+//          rightNodeB.logging()
+//        )
+//      )
 //      leftNodeA.logging() should observe[LogEvent, Int, Unit](
 //        InitialState(0, ()),
 //        When(0) {
