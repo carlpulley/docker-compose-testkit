@@ -1,9 +1,10 @@
-package cakesolutions.docker.testkit
+package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
-import akka.actor.FSM.{StateTimeout, Event}
+import akka.actor.FSM.{Event, StateTimeout}
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
 import monix.execution.Scheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
@@ -54,9 +55,6 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
       helloworld.logging() should observe[LogEvent, Int, Unit](
         InitialState(0, ()),
         When(0, 3.seconds) {
-          case Event(event: LogEvent, _) if event.message.startsWith("Invalid message") =>
-            Fail("impossible failure!")
-
           case Event(StateTimeout, _) =>
             Accept
         }

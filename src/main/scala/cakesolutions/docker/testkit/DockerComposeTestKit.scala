@@ -87,10 +87,10 @@ object DockerComposeTestKit {
     override def toString: String = id.toString
   }
   final class DockerCommand(command: String) {
-    def execute(args: String*): String = s"$command ${args.mkString(" ")}"
+    def execute(args: String*): Seq[String] = command +: args.toSeq
   }
   final class DockerComposeCommand(command: String) {
-    def execute(args: String*): String = s"$command ${args.mkString(" ")}"
+    def execute(args: String*): Seq[String] = command +: args.toSeq
   }
 
   trait Driver {

@@ -5,25 +5,27 @@ import akka.actor.{ActorSystem, FSM, Props}
 import cakesolutions.docker.testkit.logging.Logger
 import monix.execution.Scheduler
 import monix.reactive.Observable
+import org.scalatest.concurrent.AsyncAssertions.Waiter
+import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, Promise}
-import scala.util.Try
 
 object ObservableMatcher {
   sealed trait Action
-  case class Fail(reason: String) extends Action
-  case class Goto[State, Data](state: State, using: Data = null, forMax: FiniteDuration = null) extends Action
+  final case class Fail(reason: String) extends Action
+  final case class Goto[State, Data](state: State, using: Data = null, forMax: FiniteDuration = null) extends Action
   case object Accept extends Action
-  case object Stay extends Action
+  final case class Stay[Data](using: Data = null) extends Action
 
   case class InitialState[State, Data](state: State, data: Data, timeout: FiniteDuration = null)
 
   final case class When[State, Data](state: State, stateTimeout: FiniteDuration = null)(val transition: PartialFunction[FSM.Event[Data], Action])
 
-  def observe[E : Manifest, S, D](initial: InitialState[S, D], actions: When[S, D]*)(implicit timeout: FiniteDuration, system: ActorSystem, outerLog: Logger) = Matcher { (obs: Observable[E]) =>
-    val result = Promise[Boolean]
+  def observe[E : Manifest, S, D](initial: InitialState[S, D], actions: When[S, D]*)(implicit testDuration: FiniteDuration, system: ActorSystem, outerLog: Logger) = Matcher { (obs: Observable[E]) =>
+    val control = new Waiter
+
+    var result: Option[Boolean] = None
 
     class MatchingFSM extends FSM[S, D] {
       startWith(initial.state, initial.data, Option(initial.timeout))
@@ -46,8 +48,10 @@ object ObservableMatcher {
             case (event, Goto(state: S, data: D, max)) =>
               outerLog.info(s"Matched: $event")
               goto(state).using(data).forMax(max)
-            case (event, Stay) =>
+            case (event, Stay(null)) =>
               stay()
+            case (event, Stay(data: D)) =>
+              stay().using(data)
             case (event, Accept) =>
               outerLog.info(s"Matched: $event")
               stop()
@@ -67,12 +71,15 @@ object ObservableMatcher {
 
       onTermination {
         case StopEvent(FSM.Normal, _, _) =>
-          result.success(true)
+          control.dismiss()
+          result = Some(true)
         case StopEvent(FSM.Shutdown, _, _) =>
-          result.success(false)
+          control.dismiss()
+          result = Some(false)
         case StopEvent(FSM.Failure(reason), state, data) =>
           outerLog.error(s"FSM matching failed in state $state using data $data - reason: $reason")
-          result.success(false)
+          control.dismiss()
+          result = Some(false)
       }
 
       initialize()
@@ -83,11 +90,10 @@ object ObservableMatcher {
       checker ! event
     }(Scheduler(system.dispatcher))
 
-    result.future.onComplete {
-      case _: Try[_] =>
-        system.stop(checker)
-    }(system.dispatcher)
+    control.await(Timeout(testDuration))
 
-    MatchResult(Await.result(result.future, timeout), "+ve ???" , "-ve ???")
+    system.stop(checker)
+
+    MatchResult(result.contains(true), "+ve ???" , "-ve ???")
   }
 }

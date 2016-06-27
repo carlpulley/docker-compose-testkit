@@ -1,4 +1,4 @@
-package cakesolutions.docker.testkit
+package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
 import akka.actor.FSM.Event
@@ -8,13 +8,12 @@ import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.clients.RestAPIClient
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers._
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
 import monix.execution.Scheduler
-import monix.reactive.Notification.{OnComplete, OnError, OnNext}
-import monix.reactive.{Notification, Observable}
+import monix.reactive.Observable
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.Promise
 import scala.concurrent.duration._
 
 object WordpressLogEvents {

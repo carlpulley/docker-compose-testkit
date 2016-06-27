@@ -23,23 +23,23 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
 
   import protocol._
 
-  lazy val service: Map[String, Service] =
+  lazy val service: Map[String, protocol.Service] =
     config.fields(YamlString("services")).asYamlObject.fields.map { case (section, defn) =>
       val name = YamlString("name")
       val value = section.asInstanceOf[YamlString]
-      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[Service]
+      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[protocol.Service]
     }
-  lazy val network: Map[String, Network] =
+  lazy val network: Map[String, protocol.Network] =
     config.fields(YamlString("networks")).asYamlObject.fields.map { case (section, defn) =>
       val name = YamlString("name")
       val value = section.asInstanceOf[YamlString]
-      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[Network]
+      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[protocol.Network]
     }
-  lazy val volume: Map[String, Volume] =
+  lazy val volume: Map[String, protocol.Volume] =
     config.fields(YamlString("volumes")).asYamlObject.fields.map { case (section, defn) =>
       val name = YamlString("name")
       val value = section.asInstanceOf[YamlString]
-      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[Volume]
+      value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[protocol.Volume]
     }
   lazy val docker: Map[String, DockerImage] =
     Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id)): _*)

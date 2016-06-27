@@ -57,7 +57,6 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
                           subscriber.onNext(value)
                         } catch {
                           case exn: Throwable =>
-                            log.error(s"DEBUGGY: onNext($value)")
                             exn.printStackTrace()
                         }
                       case Failure(exn) =>
@@ -69,7 +68,6 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
                           subscriber.onNext(value)
                         } catch {
                           case exn: Throwable =>
-                            log.error(s"DEBUGGY: onError($value)")
                             exn.printStackTrace()
                         }
                       case Failure(exn) =>

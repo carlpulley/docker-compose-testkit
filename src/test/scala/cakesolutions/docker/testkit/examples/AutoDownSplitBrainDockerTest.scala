@@ -1,12 +1,9 @@
-package cakesolutions.docker.testkit
-/*
+package cakesolutions.docker.testkit.examples
+
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
-import cakesolutions.docker.testkit.clients.AkkaClusterClient
-import cakesolutions.docker.testkit.filters.ObservableFilter
 import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
-import monix.reactive.Observable
 
 import scala.concurrent.duration._
 
@@ -27,11 +24,8 @@ object AutoDownSplitBrainDockerTest {
 }
 
 class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
-  import AkkaClusterClient._
   import AutoDownSplitBrainDockerTest._
   import DockerComposeTestKit._
-  import ObservableFilter._
-  import ObservableMatcher._
 
   implicit val testDuration = 30.seconds
 
@@ -90,14 +84,28 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
 
   // TODO: add scaling commands to DockerComposeTestKit
   "Distributed Akka cluster with auto-downing" - {
-    "should automatically seed and form" in {
-      leftNodeA.logging().matchFirst(clusterJoin("left-node-A"))
-        .andThen(leftNodeA.isAvailable.matchFirst(_ == true))
-        .andThen(leftNodeA.leader.matchFirst(_.host.contains("left-node-A")))
-        .andThen(leftNodeA.unreachable.matchFirst(_.isEmpty))
-        .andThen(leftNodeA.members.matchFirstUnordered { st =>
-          Set("left-node-A", "left-node-B", "right-node-A", "right-node-B").subsetOf(st.members.flatMap(_.address.host))
-        })
+    "should automatically seed and form" ignore {
+//      leftNodeA.logging() should observe[LogEvent, Int, Unit](
+//        InitialState(0, ()),
+//        When(0) {
+//          case Event(event: LogEvent, _) if clusterJoin("left-node-A")(event) =>
+//            Goto(1)
+//        },
+//        // FIXME: and now we consume/monitor `leftNodeA`
+//        When(1) {
+//          case Event(event: LogEvent, _) if event.isAvailable.matchFirst(_ == true) =>
+//            Goto(2)
+//        }
+//      )
+
+//        .matchFirst(clusterJoin("left-node-A"))
+//        .andThen(leftNodeA.isAvailable.matchFirst(_ == true))
+//        .andThen(leftNodeA.leader.matchFirst(_.host.contains("left-node-A")))
+//        .andThen(leftNodeA.unreachable.matchFirst(_.isEmpty))
+//        .andThen(leftNodeA.members.matchFirstUnordered { st =>
+//          Set("left-node-A", "left-node-B", "right-node-A", "right-node-B").subsetOf(st.members.flatMap(_.address.host))
+//        })
+
 //        .andThen( // FIXME:
 //          List(leftNodeB, rightNodeA, rightNodeB)
 //            .map(_.logging())
@@ -128,4 +136,3 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   }
 
 }
-*/

@@ -13,12 +13,20 @@ import org.json4s.native.JsonMethods._
 
 import scala.sys.process._
 
+object DockerComposeProtocol {
+  final case class ConfigDescription(Subnet: String, Gateway: String)
+  final case class IpamDescription(Driver: String, Options: Option[String], Config: List[ConfigDescription])
+  final case class ContainerNetworkDescription(Name: String, EndpointID: String, MacAddress: String, IPv4Address: String, IPv6Address: String)
+  final case class NetworkDescription(Name: String, Id: String, Scope: String, Driver: String, EnableIPv6: Boolean, IPAM: IpamDescription, Internal: Boolean, Containers: Map[String, ContainerNetworkDescription], Options: Map[String, String], Labels: Map[String, String])
+}
+
 private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DefaultYamlProtocol {
+  import DockerComposeProtocol._
   import ImpairmentSpec._
 
   implicit val formats = DefaultFormats
 
-  final case class Service(name: String) {
+  case class Service(name: String) {
     def docker: Vector[DockerImage] = {
       driver
         .compose
@@ -29,28 +37,22 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
     }
   }
 
-  final case class ConfigDescription(subnet: String, gateway: String)
-  final case class IpamDescription(driver: String, options: Option[String], config: List[ConfigDescription])
-  final case class ContainerNetworkDescription(name: String, endpointId: String, macAddress: String, ipv4Address: String, ipv6Address: String)
-  final case class NetworkDescription(name: String, id: String, scope: String, driver: String, enableIPv6: Boolean, ipam: IpamDescription, internal: Boolean, containers: Map[String, ContainerNetworkDescription], options: Map[String, String], labels: Map[String, String])
-
-  final case class Network(name: String) {
+  case class Network(name: String) {
     private[this] val fqNetworkName = s"${projectId.toString.replaceAll("-", "")}_${name}"
 
     // TODO: only allow if NET_ADMIN capability is enabled
     def qdisc(impairments: Impairment*): Unit = {
-      inspect.containers.keys.foreach { container =>
-        val nic = driver.docker.execute("inspect", "-f", "'{{ range $key, $value := .NetworkSettings.Networks }}{{ $key }} {{end}}'", container).!!.split(" ").indexOf(fqNetworkName)
-        val spec = impairments.map(_.command).mkString(" ")
+      inspect.Containers.keys.foreach { container =>
+        val spec = impairments.flatMap(_.command)
 
         driver
           .docker
-          .execute("exec", "-t", container, "tc", "qdisc", "replace", "dev", s"eth$nic", "root", "netem", spec).!!
+          .execute(Seq("exec", "-t", container, "tc", "qdisc", "replace", "dev", s"eth${nic(container)}", "root", "netem") ++ spec: _*).!!
       }
     }
 
     def partition(): Unit = {
-      inspect.containers.keys.foreach { container =>
+      inspect.Containers.keys.foreach { container =>
         driver
           .docker
           .execute("network", fqNetworkName, "disconnect", container).!!
@@ -58,16 +60,18 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
     }
 
     def reset(): Unit = {
-      inspect.containers.keys.foreach { container =>
-        val nic = driver.docker.execute("inspect", "-f", "'{{ range $key, $value := .NetworkSettings.Networks }}{{ $key }} {{end}}'", container).!!.split(" ").indexOf(fqNetworkName)
-
+      inspect.Containers.keys.foreach { container =>
         driver
           .docker
           .execute("network", fqNetworkName, "connect", container).!!
         driver
           .docker
-          .execute("exec", "-t", container, "tc", "qdisc", "del", "dev", s"eth$nic", "root", "netem").!!
+          .execute("exec", "-t", container, "tc", "qdisc", "del", "dev", s"eth${nic(container)}", "root", "netem").!!
       }
+    }
+
+    private def nic(container: String): Int = {
+      driver.docker.execute("inspect", "-f", "'{{ range $key, $value := .NetworkSettings.Networks }}{{ $key }} {{end}}'", container).!!.trim.tail.dropRight(1).split(" ").map(_.trim).indexOf(fqNetworkName)
     }
 
     private def inspect: NetworkDescription = {
@@ -76,7 +80,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
   }
 
   // TODO: unreliable volume management
-  final case class Volume(name: String)
+  case class Volume(name: String)
 
   implicit val serviceFormat = yamlFormat1(Service)
   implicit val networkFormat = yamlFormat1(Network)

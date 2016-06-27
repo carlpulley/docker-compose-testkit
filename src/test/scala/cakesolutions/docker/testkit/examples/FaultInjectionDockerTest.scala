@@ -1,7 +1,8 @@
-package cakesolutions.docker.testkit
+package cakesolutions.docker.testkit.examples
 
 import cakesolutions.docker.testkit.logging.TestLogger
-import org.scalatest.{BeforeAndAfterAll, Inside, Matchers, FreeSpec}
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
 class FaultInjectionDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
