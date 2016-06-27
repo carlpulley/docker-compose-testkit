@@ -13,12 +13,12 @@ import scala.concurrent.duration.FiniteDuration
 
 object ObservableMatcher {
   sealed trait Action
+  case object Accept extends Action
   final case class Fail(reason: String) extends Action
   final case class Goto[State, Data](state: State, using: Data = null, forMax: FiniteDuration = null) extends Action
-  case object Accept extends Action
   final case class Stay[Data](using: Data = null) extends Action
 
-  case class InitialState[State, Data](state: State, data: Data, timeout: FiniteDuration = null)
+  final case class InitialState[State, Data](state: State, data: Data, timeout: FiniteDuration = null)
 
   final case class When[State, Data](state: State, stateTimeout: FiniteDuration = null)(val transition: PartialFunction[FSM.Event[Data], Action])
 

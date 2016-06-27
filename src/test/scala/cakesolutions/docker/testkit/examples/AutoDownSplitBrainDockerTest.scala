@@ -1,14 +1,19 @@
 package cakesolutions.docker.testkit.examples
 
+import akka.actor.ActorSystem
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
+import cakesolutions.docker.testkit.clients.AkkaClusterClient
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import monix.execution.Scheduler
 import monix.reactive.Observable
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
 import scala.concurrent.duration._
 
 object AutoDownSplitBrainDockerTest {
+  import AkkaClusterClient._
+
   val akkaPort = 2552
   val autoDown = 10.seconds
   val etcdPort = 2379
@@ -23,8 +28,13 @@ object AutoDownSplitBrainDockerTest {
     event.message.endsWith(s"Welcome from [akka.tcp://SBRTestCluster@$leaderNode:$akkaPort]")
   }
 
-  final case class NodeSensor(log: Observable[LogEvent])
-  final case class Probes(probes: NodeSensor*)
+  final case class NodeSensors(log: Observable[LogEvent], available: Observable[Boolean])
+  object NodeSensors {
+    def apply(image: DockerImage)(implicit scheduler: Scheduler): NodeSensors = {
+      NodeSensors(image.logging(), image.isAvailable())
+    }
+  }
+  final case class Probes(probes: NodeSensors*)
   final case class InstrumentedCluster(left: Probes, right: Probes)
 }
 
@@ -33,6 +43,8 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   import DockerComposeTestKit._
 
   implicit val testDuration = 30.seconds
+  implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
+  implicit val scheduler = Scheduler(actorSystem.dispatcher)
 
   def clusterNode(name: String, network1: String, network2: String): (String, DockerComposeYaml) =
     name -> DockerComposeYaml(
@@ -90,16 +102,16 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   // TODO: add scaling commands to DockerComposeTestKit
   "Distributed Akka cluster with auto-downing" - {
     "should automatically seed and form" ignore {
-//      val sensorNet = InstrumentedCluster(
-//        left = Probes(
-//          leftNodeA.logging(),
-//          leftNodeB.logging()
-//        ),
-//        right = Probes(
-//          rightNodeA.logging(),
-//          rightNodeB.logging()
-//        )
-//      )
+      val sensorNet = InstrumentedCluster(
+        left = Probes(
+          NodeSensors(leftNodeA),
+          NodeSensors(leftNodeB)
+        ),
+        right = Probes(
+          NodeSensors(rightNodeA),
+          NodeSensors(rightNodeB)
+        )
+      )
 //      leftNodeA.logging() should observe[LogEvent, Int, Unit](
 //        InitialState(0, ()),
 //        When(0) {
