@@ -110,6 +110,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     val meanSeqDiff = totalSeqDiff.toDouble / window.length
     val meanTime = totalTime / window.length
 
+    note(s"Stats: mean icmp_seq difference is $meanSeqDiff; mean time is $meanTime")
     assertion(meanSeqDiff)(meanTime)
   }
 
@@ -126,8 +127,10 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
   "Networked containers" in {
     val dataSize = 9
-    val displayExpectedNetworkBehaviour = observe[Ping, Int, Vector[Ping]](
-      InitialState(0, Vector.empty[Ping]),
+    val pingObservable = c2.logging().flatMap(line => Ping.parse(line).fold[Observable[Ping]](Observable.empty)(Observable.now))
+
+    shouldObserve[Ping, Int, Vector[Ping]](
+      InitialState(0, Vector.empty[Ping], subscribeTo = Set(pingObservable)),
       When(0) {
         case Event(event: Ping, data) if data.length < dataSize =>
           Stay(using = data :+ event)
@@ -196,8 +199,6 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
           }
       }
     )
-
-    c2.logging().flatMap(line => Ping.parse(line).fold[Observable[Ping]](Observable.empty)(Observable.now)) should displayExpectedNetworkBehaviour
   }
 
 }

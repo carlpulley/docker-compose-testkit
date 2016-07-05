@@ -14,9 +14,9 @@ import org.json4s.jackson.JsonMethods._
 // [1] https://github.com/akka/akka/blob/master/akka-cluster/src/main/scala/akka/cluster/ClusterJmx.scala
 // [2] https://github.com/akka/akka/tree/master/akka-kernel/src/main/dist/bin
 object AkkaClusterClient {
-  case class AkkaClusterMember(address: Address, status: MemberStatus, roles: List[String])
-  case class UnreachableObservation(node: Address, observedBy: List[Address])
-  case class AkkaClusterState(selfAddress: Address, members: Set[AkkaClusterMember], unreachable: Set[UnreachableObservation])
+  final case class AkkaClusterMember(address: Address, status: MemberStatus, roles: List[String])
+  final case class AkkaClusterState(selfAddress: Address, members: Set[AkkaClusterMember], unreachable: Set[UnreachableObservation])
+  final case class UnreachableObservation(node: Address, observedBy: List[Address])
 
   object AddressFormat extends CustomSerializer[Address](format => ({
     case JString(addr) =>
@@ -66,92 +66,100 @@ object AkkaClusterClient {
     }
 
     def isAvailable()(implicit scheduler: Scheduler): Observable[Boolean] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "is-available")
-          .tail
-          .headF
-          .map(line => parse(line).extract[Boolean])
-      )
+      Observable
+        .repeatEval(
+          image
+            .exec(clusterConsole, jmxHost, jmxPort, "is-available")
+            .tail
+            .headF
+            .map(line => parse(line).extract[Boolean])
+        )
+        .flatten
     }
 
     def isSingleton()(implicit scheduler: Scheduler): Observable[Boolean] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "is-singleton")
-          .tail
-          .headF
-          .map(line => parse(line).extract[Boolean])
-      )
+      Observable
+        .repeatEval(
+          image
+            .exec(clusterConsole, jmxHost, jmxPort, "is-singleton")
+            .tail
+            .headF
+            .map(line => parse(line).extract[Boolean])
+        )
+        .flatten
     }
 
     def join(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "join", member.address.toString)
-          .tail
-          .headF
-          .map(_ => ())
-      )
+       image
+         .exec(clusterConsole, jmxHost, jmxPort, "join", member.address.toString)
+         .tail
+         .headF
+         .map(_ => ())
     }
 
     def leader()(implicit scheduler: Scheduler): Observable[Address] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "leader")
-          .tail
-          .headF
-          .map(AddressFromURIString.parse)
-      )
+      Observable
+        .repeatEval(
+          image
+            .exec(clusterConsole, jmxHost, jmxPort, "leader")
+            .tail
+            .headF
+            .map(AddressFromURIString.parse)
+        )
+        .flatten
     }
 
     def leave(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "leave", member.address.toString)
-          .tail
-          .headF
-          .map(_ => ())
-      )
+      image
+        .exec(clusterConsole, jmxHost, jmxPort, "leave", member.address.toString)
+        .tail
+        .headF
+        .map(_ => ())
     }
 
     def members()(implicit scheduler: Scheduler): Observable[AkkaClusterState] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "cluster-status")
-          .tail
-          .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
-          .map { lines =>
-            val json = parse(lines.mkString("\n")).transformField {
-              case ("self-address", value) =>
-                ("selfAddress", value)
-            }
+      Observable
+        .repeatEval(
+          image
+            .exec(clusterConsole, jmxHost, jmxPort, "cluster-status")
+            .tail
+            .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
+            .map { lines =>
+              val json = parse(lines.mkString("\n")).transformField {
+                case ("self-address", value) =>
+                  ("selfAddress", value)
+              }
 
-            json.extract[AkkaClusterState]
-          }
-      )
+              json.extract[AkkaClusterState]
+            }
+        )
+        .flatten
     }
 
     def status()(implicit scheduler: Scheduler): Observable[MemberStatus] = {
-      Observable.defer(
-        image
-         .exec(clusterConsole, jmxHost, jmxPort, "member-status")
-         .tail
-         .headF
-         .map(line => parse(line).extract[MemberStatus])
-      )
+      Observable
+        .repeatEval(
+          image
+           .exec(clusterConsole, jmxHost, jmxPort, "member-status")
+           .tail
+           .headF
+           .map(line => parse(line).extract[MemberStatus])
+        )
+        .flatten
     }
 
     def unreachable()(implicit scheduler: Scheduler): Observable[List[Address]] = {
-      Observable.defer(
-        image
-          .exec(clusterConsole, jmxHost, jmxPort, "unreachable")
-          .tail
-          .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
-          .map { lines =>
-            lines.map(_.trim).filterNot(_.isEmpty).toList.flatMap(_.split(",").map(AddressFromURIString.parse))
-          }
-      )
+      Observable
+        .repeatEval(
+          image
+            .exec(clusterConsole, jmxHost, jmxPort, "unreachable")
+            .tail
+            .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
+            .map { lines =>
+              lines.map(_.trim).filterNot(_.isEmpty).toList.flatMap(_.split(",").map(AddressFromURIString.parse))
+            }
+        )
+        .flatten
     }
   }
 }

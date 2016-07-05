@@ -111,8 +111,8 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-      wordpress.logging() should observe[LogEvent, Int, Unit](
-        InitialState(0, ()),
+       shouldObserve[LogEvent, Int, Unit](
+        InitialState(0, (), subscribeTo = Set(wordpress.logging())),
         When(0) {
           case Event(event: LogEvent, _) if startedEvent(event) =>
             checkSiteUp.runAsyncGetLast
@@ -159,8 +159,8 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-      wordpress.logging() should observe[LogEvent, Int, Unit](
-        InitialState(0, ()),
+       shouldObserve[LogEvent, Int, Unit](
+        InitialState(0, (), subscribeTo = Set(wordpress.logging())),
         When(0) {
           case Event(event: LogEvent, _) if startedEvent(event) =>
             configureSite.runAsyncGetLast

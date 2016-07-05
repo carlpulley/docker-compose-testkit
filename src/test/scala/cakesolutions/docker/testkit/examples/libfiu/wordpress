@@ -1,0 +1,5 @@
+FROM wordpress
+USER root
+RUN apt-get update
+RUN apt-get install -y libfiu-dev fiu-utils
+USER daemon

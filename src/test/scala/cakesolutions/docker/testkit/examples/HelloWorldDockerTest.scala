@@ -42,9 +42,9 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
 
   "Hello-world Docker Container" - {
     "expected greeting" in {
-      helloworld.logging() should observe[LogEvent, Int, Unit](
-        InitialState(0, ()),
-        When(0) {
+      shouldObserve[LogEvent, Unit, Unit](
+        InitialState((), (), subscribeTo = Set(helloworld.logging())),
+        When(()) {
           case Event(event: LogEvent, _) if event.message.startsWith("Hello from Docker") =>
             Accept
         }
@@ -52,9 +52,9 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
     }
 
     "unexpected log line" in {
-      helloworld.logging() should observe[LogEvent, Int, Unit](
-        InitialState(0, ()),
-        When(0, 3.seconds) {
+      shouldObserve[LogEvent, Unit, Unit](
+        InitialState((), (), subscribeTo = Set(helloworld.logging())),
+        When((), 3.seconds) {
           case Event(StateTimeout, _) =>
             Accept
         }
@@ -62,8 +62,8 @@ class HelloWorldDockerTest extends FreeSpec with ScalaFutures with Matchers with
     }
 
     "can match multiple consecutive logging lines" in {
-      helloworld.logging() should observe[LogEvent, Int, Unit](
-        InitialState(0, ()),
+      shouldObserve[LogEvent, Int, Unit](
+        InitialState(0, (), subscribeTo = Set(helloworld.logging())),
         When(0) {
           case Event(event: LogEvent, _) if event.message.startsWith("1. The Docker client contacted the Docker daemon") =>
             Goto(1)

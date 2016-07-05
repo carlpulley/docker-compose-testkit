@@ -23,6 +23,7 @@ lazy val root = (project in file(".")).
       json4s.jackson,
       monix.core,
       monix.reactive,
+      pprint,
       scalatest,
       yaml
     )
