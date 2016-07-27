@@ -5,10 +5,13 @@ import akka.cluster.MemberStatus
 import akka.cluster.MemberStatus._
 import cakesolutions.docker.testkit.DockerImage
 import monix.execution.Scheduler
+import monix.reactive.Notification.{OnError, OnNext}
 import monix.reactive.Observable
 import org.json4s.JsonAST.JString
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+
+import scala.concurrent.duration._
 
 // References:
 // [1] https://github.com/akka/akka/blob/master/akka-cluster/src/main/scala/akka/cluster/ClusterJmx.scala
@@ -53,113 +56,128 @@ object AkkaClusterClient {
   implicit val formats = DefaultFormats + AddressFormat + MemberStatusFormat
 
   implicit class AkkaClusterUtil(image: DockerImage) {
-    private val clusterConsole = "/opt/docker/bin/cluster-console"
+    private val clusterConsole = "/usr/local/bin/cluster-console"
     private val jmxHost = "127.0.0.1"
     private val jmxPort = "9999"
 
     def down(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
       image
         .exec(clusterConsole, jmxHost, jmxPort, "down", member.address.toString)
+        .withErrorChecking
         .tail
         .headF
         .map(_ => ())
     }
 
     def isAvailable()(implicit scheduler: Scheduler): Observable[Boolean] = {
-      Observable
-        .repeatEval(
-          image
-            .exec(clusterConsole, jmxHost, jmxPort, "is-available")
-            .tail
-            .headF
-            .map(line => parse(line).extract[Boolean])
-        )
-        .flatten
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "is-available")
+          .withErrorChecking
+          .tail
+          .headF
+          .map(line => parse(line).extract[Boolean])
+      }
     }
 
     def isSingleton()(implicit scheduler: Scheduler): Observable[Boolean] = {
-      Observable
-        .repeatEval(
-          image
-            .exec(clusterConsole, jmxHost, jmxPort, "is-singleton")
-            .tail
-            .headF
-            .map(line => parse(line).extract[Boolean])
-        )
-        .flatten
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "is-singleton")
+          .withErrorChecking
+          .tail
+          .headF
+          .map(line => parse(line).extract[Boolean])
+      }
     }
 
     def join(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
-       image
-         .exec(clusterConsole, jmxHost, jmxPort, "join", member.address.toString)
-         .tail
-         .headF
-         .map(_ => ())
+      image
+        .exec(clusterConsole, jmxHost, jmxPort, "join", member.address.toString)
+        .withErrorChecking
+        .tail
+        .headF
+        .map(_ => ())
     }
 
     def leader()(implicit scheduler: Scheduler): Observable[Address] = {
-      Observable
-        .repeatEval(
-          image
-            .exec(clusterConsole, jmxHost, jmxPort, "leader")
-            .tail
-            .headF
-            .map(AddressFromURIString.parse)
-        )
-        .flatten
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "leader")
+          .withErrorChecking
+          .tail
+          .headF
+          .map(AddressFromURIString.parse)
+      }
     }
 
     def leave(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
       image
         .exec(clusterConsole, jmxHost, jmxPort, "leave", member.address.toString)
+        .withErrorChecking
         .tail
         .headF
         .map(_ => ())
     }
 
     def members()(implicit scheduler: Scheduler): Observable[AkkaClusterState] = {
-      Observable
-        .repeatEval(
-          image
-            .exec(clusterConsole, jmxHost, jmxPort, "cluster-status")
-            .tail
-            .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
-            .map { lines =>
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "cluster-status")
+          .withErrorChecking
+          .tail
+          .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
+          .collect {
+            case lines if lines.nonEmpty =>
               val json = parse(lines.mkString("\n")).transformField {
                 case ("self-address", value) =>
                   ("selfAddress", value)
               }
 
               json.extract[AkkaClusterState]
-            }
-        )
-        .flatten
+          }
+      }
     }
 
     def status()(implicit scheduler: Scheduler): Observable[MemberStatus] = {
-      Observable
-        .repeatEval(
-          image
-           .exec(clusterConsole, jmxHost, jmxPort, "member-status")
-           .tail
-           .headF
-           .map(line => parse(line).extract[MemberStatus])
-        )
-        .flatten
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "member-status")
+          .withErrorChecking
+          .tail
+          .headF
+          .map(line => parse(line).extract[MemberStatus])
+      }
     }
 
     def unreachable()(implicit scheduler: Scheduler): Observable[List[Address]] = {
-      Observable
-        .repeatEval(
-          image
-            .exec(clusterConsole, jmxHost, jmxPort, "unreachable")
-            .tail
-            .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
-            .map { lines =>
-              lines.map(_.trim).filterNot(_.isEmpty).toList.flatMap(_.split(",").map(AddressFromURIString.parse))
-            }
-        )
-        .flatten
+      repeatedEval {
+        image
+          .exec(clusterConsole, jmxHost, jmxPort, "unreachable")
+          .withErrorChecking
+          .tail
+          .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
+          .map { lines =>
+            lines.map(_.trim).filterNot(_.isEmpty).toList.flatMap(_.split(",").map(AddressFromURIString.parse))
+          }
+      }
+    }
+
+    private def repeatedEval[Data](obs: => Observable[Data]): Observable[Data] = {
+      Observable.repeatEval(obs).flatten.timeoutOnSlowUpstream(30.seconds)
+    }
+
+    private implicit class HelperOperations(obs: Observable[String]) {
+      def withErrorChecking: Observable[String] = {
+        obs
+          .map {
+            case reason if reason.startsWith("rpc error") =>
+              OnError(new RuntimeException(reason))
+            case data =>
+              OnNext(data)
+          }
+          .dematerialize
+      }
     }
   }
 }

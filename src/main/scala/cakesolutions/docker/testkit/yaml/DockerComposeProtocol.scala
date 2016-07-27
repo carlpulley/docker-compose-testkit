@@ -55,7 +55,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
       inspect.Containers.keys.foreach { container =>
         driver
           .docker
-          .execute("network", fqNetworkName, "disconnect", container).!!
+          .execute("network", "disconnect", fqNetworkName, container).!!
       }
     }
 
@@ -63,7 +63,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
       inspect.Containers.keys.foreach { container =>
         driver
           .docker
-          .execute("network", fqNetworkName, "connect", container).!!
+          .execute("network", "connect", fqNetworkName, container).!!
         driver
           .docker
           .execute("exec", "-t", container, "tc", "qdisc", "del", "dev", s"eth${nic(container)}", "root", "netem").!!

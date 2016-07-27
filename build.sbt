@@ -7,6 +7,8 @@ name := "docker-compose-testkit"
 val buildVersion = "0.0.3-SNAPSHOT"
 
 lazy val root = (project in file(".")).
+  enablePlugins(SbtTwirl).
+  settings(Template.settings: _*).
   settings(CommonProject.settings: _*).
   settings(ScalaDoc.settings: _*).
   settings(Publish.settings: _*).
@@ -16,9 +18,12 @@ lazy val root = (project in file(".")).
     libraryDependencies ++= Seq(
       akka.actor,
       akka.cluster % "test",
+      akka.contrib,
       akka.http.core % "test",
       akka.http.experimental % "test",
       akka.http.testkit % "test",
+      akka.slf4j,
+      java8Compat,
       json4s.native,
       json4s.jackson,
       monix.core,

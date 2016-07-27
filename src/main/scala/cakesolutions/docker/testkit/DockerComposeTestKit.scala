@@ -1,7 +1,7 @@
 package cakesolutions.docker.testkit
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Paths}
+import java.nio.file.{StandardCopyOption, Files, Paths}
 import java.time.ZonedDateTime
 import java.util.concurrent.{ExecutorService, Executors}
 import java.util.{TimeZone, UUID}
@@ -11,6 +11,7 @@ import net.jcazevedo.moultingyaml._
 import org.joda.time.{DateTime, DateTimeZone}
 
 import scala.collection.JavaConversions._
+import scala.compat.java8.StreamConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
 import scala.util.Try
@@ -165,15 +166,117 @@ trait DockerComposeTestKit {
       assert(Files.deleteIfExists(path))
     }
 
+    val parsedYaml = Try(yaml.contents.parseYaml)
+    assert(parsedYaml.isSuccess, s"Failed to parse docker compose YAML - reason: $parsedYaml")
+    parsedYaml.foreach {
+      case YamlObject(obj) =>
+        assert(obj.containsKey(YamlString("version")) && obj(YamlString("version")) == YamlString("2"), "Docker compose YAML should be version 2")
+        assert(obj.containsKey(YamlString("services")), "Docker compose YAML needs a `services` key")
+        obj(YamlString("services")) match {
+          case YamlObject(services) =>
+            services.values.foreach {
+              case YamlObject(service) =>
+                if (service.containsKey(YamlString("template"))) {
+                  assert(! service.containsKey(YamlString("image")) && ! service.containsKey(YamlString("build")), "Docker compose `template` key is not usable with `image` and `build` keys")
+                  service(YamlString("template")) match {
+                    case YamlObject(template) =>
+                      assert(template.containsKey(YamlString("resources")), "Docker compose YAML templates must contain a `resources` key")
+                      assert(template.containsKey(YamlString("image")), "Docker compose YAML templates must contain an `image` key")
+                      template.values.foreach { value =>
+                        assert(value.isInstanceOf[YamlString], "All template values should be strings")
+                      }
+                      val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
+                      assert(resources.startsWith("/"), "`resources` should be an absolute path")
+                      assert(Option(getClass.getResource(resources)).isDefined, "`resources` should point to a path available on the classpath")
+                      assert(template(YamlString("image")).asInstanceOf[YamlString].value.matches("^([^:]+)(:[^:]*)?$"), "`image` should match the regular expression `^([^:]+)(:[^:]*)?$`")
+                    case _ =>
+                      assert(assertion = false, "Docker compose YAML `template` key should be an object")
+                  }
+                }
+              case _ =>
+                assert(assertion = false, "Each docker compose `services` member should be an object")
+            }
+          case _ =>
+            assert(assertion = false, "Docker compose YAML `services` key should be an object")
+        }
+      case _ =>
+        assert(assertion = false, "Docker compose YAML should be an object")
+    }
+    val transformedYaml = YamlObject(
+      parsedYaml.get.asYamlObject.fields.updated(
+        YamlString("services"),
+        YamlObject(
+          parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+            case (_, service) =>
+              ! service.asYamlObject.fields.containsKey(YamlString("template"))
+          } ++
+            parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+              case (_, service) =>
+                service.asYamlObject.fields.containsKey(YamlString("template"))
+            }.map { kv => kv.asInstanceOf[(YamlString, YamlObject)] match {
+              case (YamlString(name), YamlObject(service)) =>
+                val imagePattern = "^([^:]+)(:[^:]*)?$".r
+                val template = service(YamlString("template")).asYamlObject.fields
+                val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
+                val imagePattern(repository, _) = baseImage
+                val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
+                val dockerDir = getClass.getResource(resources).getPath
+                // TODO: optimise wrt service
+                // TODO: ensure copied file is not named Dockerfile
+                for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
+                  if (path.endsWith("Dockerfile.scala.template")) {
+                    val typ = resources.split("/").last
+                    val fileContents: String = typ match {
+                      case "jmx" =>
+                        docker.jmx.template.Dockerfile(baseImage).body
+                      case "libfiu" =>
+                        docker.libfiu.template.Dockerfile(baseImage).body
+                    }
+                    val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$name/docker").dropRight(".scala.template".length))
+                    val targetDir = new File(targetFile.getParent.toString)
+
+                    if (!targetDir.exists()) {
+                      targetDir.mkdirs()
+                    }
+                    Files.write(targetFile, fileContents.getBytes)
+                  } else {
+                    val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$name/docker"))
+                    val targetDir = new File(targetFile.getParent.toString)
+
+                    if (!targetDir.exists()) {
+                      targetDir.mkdirs()
+                    }
+                    if (!new File(targetFile.toString).exists()) {
+                      Files.copy(path, targetFile, StandardCopyOption.COPY_ATTRIBUTES)
+                    }
+                  }
+                }
+
+                // TODO: add down hook to remove image
+                YamlString(name) ->
+                  YamlObject(
+                    service
+                      - YamlString("template")
+                      + (YamlString("image") -> YamlString(s"$repository:$name.$projectId"))
+                      + (YamlString("build") -> YamlObject(YamlString("context") -> YamlString(s"./$name/docker")))
+                  )
+            }
+            }
+        )
+      )
+    )
+
     val yamlFile = s"$projectDir/docker-compose.yaml"
     val output = new PrintWriter(yamlFile)
     try {
-      output.print(yaml.contents)
+      output.print(transformedYaml.prettyPrint)
     } finally {
       output.close()
     }
-    val yamlConfig = Try(driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "config").!!(log.devNull).parseYaml.asYamlObject)
+    val yamlConfig = Try(driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "config").!!(log.stderr).parseYaml.asYamlObject)
     require(yamlConfig.isSuccess, yamlConfig.toString)
+
+    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "build").!!(log.stderr)
 
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "-d").!!(log.stderr)
 

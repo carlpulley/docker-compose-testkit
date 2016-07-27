@@ -28,6 +28,3 @@ mappings in Universal ++= directory(s"${name.value}/src/main/resources")
 mappings in Universal ++= directory(s"${name.value}/src/bin")
 
 bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../resources/application.conf""""
-bashScriptExtraDefines += """addJava "-Dcom.sun.management.jmxremote.port=9999""""
-bashScriptExtraDefines += """addJava "-Dcom.sun.management.jmxremote.authenticate=false""""
-bashScriptExtraDefines += """addJava "-Dcom.sun.management.jmxremote.ssl=false""""

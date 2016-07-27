@@ -19,10 +19,9 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       |
       |services:
       |  wordpress:
-      |    build:
-      |      context: ./libfiu
-      |      dockerfile: wordpress
-      |    image: fiu-wordpress
+      |    template:
+      |      resources: /docker/libfiu
+      |      image: wordpress
       |    environment:
       |      WORDPRESS_DB_HOST: db:3306
       |      WORDPRESS_DB_PASSWORD: password
@@ -37,10 +36,9 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       |    depends_on:
       |      - db
       |  db:
-      |    build:
-      |      context: ./libfiu
-      |      dockerfile: mysql
-      |    image: fiu-db
+      |    template:
+      |      resources: /docker/libfiu
+      |      image: mariadb
       |    environment:
       |      MYSQL_ROOT_PASSWORD: password
       |      FIU_ENABLE: ""

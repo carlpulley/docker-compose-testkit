@@ -1,14 +1,14 @@
 package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
-import akka.actor.FSM.Event
 import akka.http.scaladsl.model.{HttpEntity, HttpHeader, Multipart, StatusCodes}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
+import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.RestAPIClient
 import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers._
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import cakesolutions.docker.testkit.matchers.ObservableMatcher._
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 import org.scalatest._
@@ -32,11 +32,11 @@ object WordpressLogEvents {
 
 class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with TestLogger with ScalaFutures {
   import DockerComposeTestKit._
-  import ObservableMatcher._
+  import MatchingAutomata._
   import RestAPIClient._
   import WordpressLogEvents._
 
-  implicit val testDuration = 60.seconds
+  implicit val testDuration = 2.minutes
   implicit val routeTestTimeout = RouteTestTimeout(testDuration)
   implicit val actorSystem = ActorSystem("WordpressMySQLDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
@@ -111,18 +111,19 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-       shouldObserve[LogEvent, Int, Unit](
-        InitialState(0, (), subscribeTo = Set(wordpress.logging())),
-        When(0) {
-          case Event(event: LogEvent, _) if startedEvent(event) =>
+      val fsm = MatchingAutomata[Int, LogEvent](0) {
+        case 0 => {
+          case event: LogEvent if startedEvent(event) =>
             checkSiteUp.runAsyncGetLast
             Goto(1)
-        },
-        When(1) {
-          case Event(event: LogEvent, _) if accessEvent(event) =>
-            Accept
         }
-      )
+        case 1 => {
+          case event: LogEvent if accessEvent(event) =>
+            Stop(Accept)
+        }
+      }
+
+      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept)
     }
 
     "wordpress hello-world site setup" in {
@@ -159,26 +160,27 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         )
       }
 
-       shouldObserve[LogEvent, Int, Unit](
-        InitialState(0, (), subscribeTo = Set(wordpress.logging())),
-        When(0) {
-          case Event(event: LogEvent, _) if startedEvent(event) =>
+      val fsm = MatchingAutomata[Int, LogEvent](0) {
+        case 0 => {
+          case event: LogEvent if startedEvent(event) =>
             configureSite.runAsyncGetLast
             Goto(1)
-        },
-        When(1) {
-          case Event(event: LogEvent, _) if setupEvents(0)(event) =>
-            Goto(2)
-        },
-        When(2) {
-          case Event(event: LogEvent, _) if setupEvents(1)(event) =>
-            Goto(3)
-        },
-        When(3) {
-          case Event(event: LogEvent, _) if setupEvents(2)(event) =>
-            Accept
         }
-      )
+        case 1 => {
+          case event: LogEvent if setupEvents(0)(event) =>
+            Goto(2)
+        }
+        case 2 => {
+          case event: LogEvent if setupEvents(1)(event) =>
+            Goto(3)
+        }
+        case 3 => {
+          case event: LogEvent if setupEvents(2)(event) =>
+            Stop(Accept)
+        }
+      }
+
+      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept)
     }
   }
 }

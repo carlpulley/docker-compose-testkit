@@ -10,6 +10,7 @@ object Dependencies {
 
     val actor = "com.typesafe.akka" %% "akka-actor" % version
     val cluster = "com.typesafe.akka" %% "akka-cluster" % version
+    val contrib = "com.typesafe.akka" %% "akka-contrib" % version
 
     object http {
       val core = "com.typesafe.akka" %% "akka-http-core" % version
@@ -19,6 +20,8 @@ object Dependencies {
 
     val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
   }
+
+  val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0-RC3"
 
   object json4s {
     private val version = "3.3.0"

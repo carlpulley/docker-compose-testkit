@@ -4,11 +4,11 @@ import java.time.format.DateTimeFormatter
 import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.ExecutorService
 
-import cakesolutions.docker.testkit.DockerComposeTestKit.{ProjectId, Driver, LogEvent}
+import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent, ProjectId}
 import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.network.ImpairmentSpec
 import monix.execution.{Cancelable, Scheduler}
-import monix.reactive.{Observable, OverflowStrategy}
+import monix.reactive.{Observable, OverflowStrategy, Pipe}
 
 import scala.concurrent._
 import scala.sys.process._
@@ -38,7 +38,7 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
     }
   }
 
-  def logging()(implicit scheduler: Scheduler): Observable[LogEvent] = {
+  def logging(since: ZonedDateTime = null)(implicit scheduler: Scheduler): Observable[LogEvent] = {
     Observable.create[LogEvent](OverflowStrategy.Unbounded) { subscriber =>
       val cancelP = Promise[Unit]
 
@@ -46,10 +46,11 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
         pool.execute(new Runnable {
           def run(): Unit = {
             blocking {
+              val sinceOption = Option(since).fold(Seq.empty[String])(ts => Seq("--since", ts.format(DateTimeFormatter.ISO_INSTANT)))
               val process =
                 driver
                   .docker
-                  .execute("logs", "-f", "-t", id)
+                  .execute(Seq("logs", "-f") ++ sinceOption ++ Seq("-t", id): _*)
                   .run(ProcessLogger(
                     out => toLogEvent(out) match {
                       case Success(value: LogEvent) =>
@@ -78,12 +79,13 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
               cancelP.future.foreach(_ => process.destroy())
 
               val exit = process.exitValue()
-
-              if (! cancelP.isCompleted) {
-                cancelP.failure(new CancellationException)
-              }
               subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), s"sys.exit: $exit"))
-              subscriber.onComplete()
+
+              if (cancelP.isCompleted) {
+                subscriber.onComplete()
+              } else {
+                throw new CancellationException // FIXME: should we be doing this?
+              }
             }
           }
         })
@@ -103,10 +105,10 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
           }
         }
       }
-    }.cache
+    }
   }
 
-  def exec(command: String*)(implicit scehduler: Scheduler): Observable[String] = {
+  def exec(command: String*)(implicit scheduler: Scheduler): Observable[String] = {
     Observable.create[String](OverflowStrategy.Unbounded) { subscriber =>
       val cancelP = Promise[Unit]
 
@@ -146,7 +148,7 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
           }
         }
       }
-    }.cache
+    }
   }
 
   def stats(command: String)(implicit scheduler: Scheduler): Observable[String] = {
@@ -191,7 +193,7 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
           }
         }
       }
-    }.cache
+    }
   }
 
   def export(out: String): Unit = {

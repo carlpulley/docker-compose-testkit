@@ -4,13 +4,13 @@ import java.time.ZonedDateTime
 import java.util.NoSuchElementException
 
 import akka.actor.ActorSystem
-import akka.actor.FSM.Event
+import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher
+import cakesolutions.docker.testkit.matchers.ObservableMatcher._
 import cakesolutions.docker.testkit.network.ImpairmentSpec.{Delay, Loss}
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
 import monix.execution.Scheduler
-import monix.reactive.Observable
+import monix.reactive.{Pipe, Observable}
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncAssertions, Eventually}
 
@@ -49,9 +49,9 @@ object LossyNetworkDockerTest {
 class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with Eventually with AsyncAssertions with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
   import LossyNetworkDockerTest._
-  import ObservableMatcher._
+  import MatchingAutomata._
 
-  implicit val testDuration = 2.minutes
+  implicit val testDuration = 3.minutes
   implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
   override implicit val patienceConfig = super.patienceConfig.copy(timeout = testDuration)
@@ -96,7 +96,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     super.afterAll()
   }
 
-  def check(window: Vector[Ping])(assertion: Double => FiniteDuration => Action): Action = {
+  def check(window: Vector[Ping], assertion: Double => FiniteDuration => Notify): Notify = {
     val (totalSeqDiff, _, totalTime) =
       window
         .foldLeft[Option[(Int, Int, FiniteDuration)]](None) {
@@ -114,6 +114,19 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     assertion(meanSeqDiff)(meanTime)
   }
 
+  def fsm(assertion: Double => FiniteDuration => Notify)(implicit dataSize: Int): MatchingAutomata[Vector[Ping], Ping] = {
+    MatchingAutomata[Vector[Ping], Ping](Vector.empty) {
+      case data if data.length < dataSize => {
+        case event: Ping =>
+          Goto(data :+ event)
+      }
+      case data => {
+        case event: Ping =>
+          Stop(check(data :+ event, assertion))
+      }
+    }
+  }
+
   "Ping parsing" - {
     "success" in {
       Ping.parse(LogEvent(ZonedDateTime.now(), "64 bytes from 5da290c2becf4eafb8ffff1fb3e372ec_c1_1.5da290c2becf4eafb8ffff1fb3e372ec_common (172.22.0.2): icmp_seq=1 ttl=64 time=0.060 ms")) shouldEqual Some(Ping(1, 60000.nanoseconds))
@@ -125,80 +138,59 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     }
   }
 
-  "Networked containers" in {
-    val dataSize = 9
-    val pingObservable = c2.logging().flatMap(line => Ping.parse(line).fold[Observable[Ping]](Observable.empty)(Observable.now))
+  "Networked containers with hot ping observable" in {
+    implicit val dataSize = 9
 
-    shouldObserve[Ping, Int, Vector[Ping]](
-      InitialState(0, Vector.empty[Ping], subscribeTo = Set(pingObservable)),
-      When(0) {
-        case Event(event: Ping, data) if data.length < dataSize =>
-          Stay(using = data :+ event)
-
-        case Event(event: Ping, data) =>
-          note("warmup")
-          Goto(1, using = Vector.empty[Ping])
-      },
-      When(1) {
-        case Event(event: Ping, data) if data.length < dataSize =>
-          Stay(using = data :+ event)
-
-        case Event(event: Ping, data) =>
-          check(data :+ event) { meanSeqDiff => meanTime =>
-            if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
-              note("normal network")
-              compose.network("common").qdisc(Delay())
-              Goto(2, using = Vector.empty[Ping])
-            } else {
-              Fail(s"$meanSeqDiff and $meanTime")
-            }
-          }
-      },
-      When(2) {
-        case Event(event: Ping, data) if data.length < dataSize =>
-          Stay(using = data :+ event)
-
-        case Event(event: Ping, data) =>
-          check(data :+ event) { meanSeqDiff => meanTime =>
-            if (100.milliseconds <= meanTime) {
-              note("delayed network")
-              compose.network("common").qdisc(Loss("random 50%"))
-              Goto(3, using = Vector.empty[Ping])
-            } else {
-              Fail(s"$meanSeqDiff and $meanTime")
-            }
-          }
-      },
-      When(3) {
-        case Event(event: Ping, data) if data.length < dataSize =>
-          Stay(using = data :+ event)
-
-        case Event(event: Ping, data) =>
-          check(data :+ event) { meanSeqDiff => meanTime =>
-            if (2 <= meanSeqDiff) {
-              note("lossy network")
-              compose.network("common").reset()
-              Goto(4, using = Vector.empty[Ping])
-            } else {
-              Fail(s"$meanSeqDiff and $meanTime")
-            }
-          }
-      },
-      When(4) {
-        case Event(event: Ping, data) if data.length < dataSize =>
-          Stay(using = data :+ event)
-
-        case Event(event: Ping, data) =>
-          check(data :+ event) { meanSeqDiff => meanTime =>
-            if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
-              note("network reset")
-              Accept
-            } else {
-              Fail(s"$meanSeqDiff and $meanTime")
-            }
-          }
-      }
+    val pingSource = TimedObservable.hot(
+      c2.logging().map(Ping.parse).collect { case Some(ping) => ping }.publish
     )
+
+    val warmup = fsm { meanSeqDiff => meanTime =>
+      note("warmup")
+      Accept
+    }
+
+    val normal = fsm { meanSeqDiff => meanTime =>
+      if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
+        note("normal network")
+        Accept
+      } else {
+        Fail(s"$meanSeqDiff and $meanTime")
+      }
+    }
+
+    val delayed = fsm { meanSeqDiff => meanTime =>
+      if (100.milliseconds <= meanTime) {
+        note("delayed network")
+        Accept
+      } else {
+        Fail(s"$meanSeqDiff and $meanTime")
+      }
+    }
+
+    val lossy = fsm { meanSeqDiff => meanTime =>
+      if (2 <= meanSeqDiff) {
+        note("lossy network")
+        Accept
+      } else {
+        Fail(s"$meanSeqDiff and $meanTime")
+      }
+    }
+
+    pingSource.observable.connect()
+
+    val testSimulation = for {
+      _ <- warmup.run(pingSource).outcome
+      _ <- normal.run(pingSource).outcome
+      _ = compose.network("common").qdisc(Delay())
+      _ <- delayed.run(pingSource).outcome
+      _ = compose.network("common").qdisc(Loss("random 50%"))
+      _ <- lossy.run(pingSource).outcome
+      _ = compose.network("common").reset()
+      _ <- normal.run(pingSource).outcome
+    } yield Accept
+
+    testSimulation should observe(Accept)
   }
 
 }
