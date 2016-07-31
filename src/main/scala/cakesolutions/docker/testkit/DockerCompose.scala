@@ -44,6 +44,7 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
   lazy val docker: Map[String, DockerImage] =
     Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id)): _*)
 
+  // TODO: handle paused containers; removing built images
   def down(): Unit = {
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "logs", "--no-color") #> new File(s"target/$projectId/$projectName/docker-compose.log") !! log.devNull
     for {

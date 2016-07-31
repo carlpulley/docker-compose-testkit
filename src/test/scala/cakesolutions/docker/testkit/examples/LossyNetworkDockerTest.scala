@@ -60,16 +60,16 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     """version: '2'
       |
       |services:
-      |  c1:
+      |  server:
       |    image: ubuntu:trusty
       |    command: /bin/sleep 300000
       |    networks:
       |      - common
       |    cap_add:
       |      - NET_ADMIN
-      |  c2:
+      |  client:
       |    image: ubuntu:trusty
-      |    command: sh -c "ping c1"
+      |    command: sh -c "ping server"
       |    networks:
       |      - common
       |    cap_add:
@@ -81,14 +81,14 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   )
 
   var compose: DockerCompose = _
-  var c1: DockerImage = _
-  var c2: DockerImage = _
+  var server: DockerImage = _
+  var client: DockerImage = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
     compose = up("lossy-network", yaml)
-    c1 = compose.service("c1").docker.head
-    c2 = compose.service("c2").docker.head
+    server = compose.service("c1").docker.head
+    client = compose.service("c2").docker.head
   }
 
   override def afterAll(): Unit = {
@@ -142,7 +142,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     implicit val dataSize = 9
 
     val pingSource = TimedObservable.hot(
-      c2.logging().map(Ping.parse).collect { case Some(ping) => ping }.publish
+      client.logging().map(Ping.parse).collect { case Some(ping) => ping }.publish
     )
 
     val warmup = fsm { meanSeqDiff => meanTime =>

@@ -1,11 +1,16 @@
 package cakesolutions.docker.testkit.examples
 
+import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.matchers.ObservableMatcher
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
+import monix.reactive.Observable
 import org.scalatest._
 
 class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfter with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
+  import MatchingAutomata._
+  import ObservableMatcher._
 
   val webHost = "127.0.0.1"
   val webPort = 8080
@@ -68,7 +73,13 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
   }
 
   "libfiu instrumented containers" - {
-    "" ignore {
+    "with no instrumentation" in {
+//      val testSimulation: Observable[Notify] = ???
+//
+//      testSimulation should observe(Accept)
+    }
+
+    "with /posix/io/* instrumented" ignore {
       // TODO:
     }
   }

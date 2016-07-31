@@ -32,7 +32,15 @@ object AutoDownSplitBrainDockerTest {
     event.message.endsWith(s"Welcome from [akka.tcp://SBRTestCluster@$leaderNode:$akkaPort]")
   }
 
-  final case class AkkaNodeSensors(log: TimedObservable.hot[LogEvent], available: TimedObservable.cold[Boolean], singleton: TimedObservable.cold[Boolean], leader: TimedObservable.cold[Address], members: TimedObservable.cold[AkkaClusterState], status: TimedObservable.cold[MemberStatus], unreachable: TimedObservable.cold[List[Address]])
+  final case class AkkaNodeSensors(
+    log: TimedObservable.hot[LogEvent],
+    available: TimedObservable.cold[Boolean],
+    singleton: TimedObservable.cold[Boolean],
+    leader: TimedObservable.cold[Address],
+    members: TimedObservable.cold[AkkaClusterState],
+    status: TimedObservable.cold[MemberStatus],
+    unreachable: TimedObservable.cold[List[Address]]
+  )
   object AkkaSensors {
     def apply(image: DockerImage)(implicit scheduler: Scheduler): AkkaNodeSensors = {
       AkkaNodeSensors(
@@ -46,7 +54,6 @@ object AutoDownSplitBrainDockerTest {
       )
     }
   }
-  final case class InstrumentedCluster(focus: String, sensors: Map[String, AkkaNodeSensors])
 
   sealed trait MatchingState
   case object ClusterMemberCheck extends MatchingState
@@ -149,7 +156,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
 
     def clusterMembers(nodes: String*) = MatchingAutomata[ClusterMemberCheck.type, AkkaClusterState](ClusterMemberCheck) {
       case _ => {
-        case AkkaClusterState(_, members, _) if members.filter(_.status == Up).flatMap(_.address.host) == Set(nodes: _*) =>
+        case AkkaClusterState(_, members, unreachable) if unreachable.isEmpty && members.filter(_.status == Up).flatMap(_.address.host) == Set(nodes: _*) =>
           Stop(Accept)
       }
     }
@@ -161,7 +168,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       }
     }
 
-    "should auto-seed and form a stable cluster" in {
+    "should auto-seed and form a stable cluster" ignore {
       val clusterSensors = Map(
         "left.A" -> AkkaSensors(leftNodeA),
         "left.B" -> AkkaSensors(leftNodeB),
@@ -191,6 +198,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
 
       val testSimulation = for {
         _ <- (superSeed.run(clusterSensors("left.A").log) && welcome.run(clusterSensors("left.B").log, clusterSensors("right.A").log, clusterSensors("right.B").log)).outcome
+        _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
         _ = note("cluster formed")
         _ <- (available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
         _ = note("node left.A is an available leader")
@@ -201,7 +209,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       testSimulation should observe(Accept)
     }
 
-    "Short GC pause should not split-brain cluster" in {
+    "Short GC pause should not split-brain cluster" ignore {
       val clusterSensors = Map(
         "left.A" -> AkkaSensors(leftNodeA),
         "left.B" -> AkkaSensors(leftNodeB),

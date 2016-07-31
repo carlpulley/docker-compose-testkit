@@ -14,13 +14,18 @@ import monix.reactive.{Observable, Observer, OverflowStrategy}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.language.higherKinds
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 object MatchingAutomata {
   sealed trait Notify
   case object Accept extends Notify
-  final case class Fail(reasons: String*) extends Exception with Notify
+  final case class Fail(reasons: String*) extends Exception with Notify {
+    override def toString: String = {
+      s"Fail($reasons)"
+    }
+  }
 
   sealed trait Action {
     def emit: Notify
@@ -41,6 +46,31 @@ object MatchingAutomata {
     new MatchingAutomata[State, Input](initial, timeout, transition)
   }
 
+  final def not[In](obs: In => Observable[Notify]): In => Observable[Notify] = { in =>
+    not(obs(in))
+  }
+
+  implicit class LiftedObservableHelper[InL](left: InL => Observable[Notify]) {
+    final def &&[InR](right: InR => Observable[Notify]): (InL, InR) => Observable[Notify] = {
+      case (inL, inR) =>
+        left(inL) && right(inR)
+    }
+
+    final def ||[InR](right: InR => Observable[Notify]): (InL, InR) => Observable[Notify] = {
+      case (inL, inR) =>
+        left(inL) || right(inR)
+    }
+  }
+
+  final def not(obs: Observable[Notify]): Observable[Notify] = {
+    obs.map {
+      case Accept =>
+        Fail("negation")
+      case _: Fail =>
+        Accept
+    }
+  }
+
   implicit class ObservableHelper(obs: Observable[Notify]) {
     final def outcome: Observable[Accept.type] = {
       obs
@@ -56,25 +86,20 @@ object MatchingAutomata {
       obs.zip(that).map {
         case (Accept, Accept) =>
           Accept
-        case _ =>
-          Fail()
+        case (Fail(left @ _*), Fail(right @ _*)) =>
+          Fail(left ++ right: _*)
+        case (Fail(left @ _*), _) =>
+          Fail(left: _*)
+        case (_, Fail(right @ _*)) =>
+          Fail(right: _*)
       }
     }
 
     final def ||(that: Observable[Notify]): Observable[Notify] = {
       obs.zip(that).map {
-        case (_: Fail, _: Fail) =>
-          Fail()
+        case (Fail(left @  _*), Fail(right @ _*)) =>
+          Fail(left ++ right: _*)
         case _ =>
-          Accept
-      }
-    }
-
-    final def invert(): Observable[Notify] = {
-      obs.map {
-        case Accept =>
-          Fail()
-        case _: Fail =>
           Accept
       }
     }

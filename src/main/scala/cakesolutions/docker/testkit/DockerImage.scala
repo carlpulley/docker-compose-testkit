@@ -124,7 +124,11 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
 
               cancelP.future.foreach(_ => process.destroy())
 
-              process.exitValue()
+              // 143 = 128 + SIGTERM
+              val exit = process.exitValue()
+              if (exit != 0 && exit != 143) {
+                throw new RuntimeException(s"Command exited with value $exit")
+              }
               if (! cancelP.isCompleted) {
                 cancelP.failure(new CancellationException)
               }

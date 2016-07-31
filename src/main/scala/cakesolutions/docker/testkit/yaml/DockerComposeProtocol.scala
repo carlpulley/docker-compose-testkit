@@ -51,19 +51,26 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
       }
     }
 
-    def partition(): Unit = {
-      inspect.Containers.keys.foreach { container =>
+    def partition(): Seq[String] = {
+      inspect.Containers.keys.map { container =>
         driver
           .docker
           .execute("network", "disconnect", fqNetworkName, container).!!
+
+        container
+      }.toSeq
+    }
+
+    def connect(containers: String*): Unit = {
+      containers.foreach { container =>
+        driver
+          .docker
+          .execute("network", "connect", fqNetworkName, container).!!
       }
     }
 
     def reset(): Unit = {
       inspect.Containers.keys.foreach { container =>
-        driver
-          .docker
-          .execute("network", "connect", fqNetworkName, container).!!
         driver
           .docker
           .execute("exec", "-t", container, "tc", "qdisc", "del", "dev", s"eth${nic(container)}", "root", "netem").!!

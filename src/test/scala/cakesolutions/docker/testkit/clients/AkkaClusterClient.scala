@@ -164,7 +164,11 @@ object AkkaClusterClient {
     }
 
     private def repeatedEval[Data](obs: => Observable[Data]): Observable[Data] = {
-      Observable.repeatEval(obs).flatten.timeoutOnSlowUpstream(30.seconds)
+      Observable
+        .repeatEval(obs)
+        .flatten
+        .sample(1.second)
+        .timeoutOnSlowUpstream(30.seconds)
     }
 
     private implicit class HelperOperations(obs: Observable[String]) {
