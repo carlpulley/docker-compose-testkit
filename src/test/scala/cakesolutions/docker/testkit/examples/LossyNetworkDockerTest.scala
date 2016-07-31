@@ -139,7 +139,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   }
 
   "Networked containers with hot ping observable" in {
-    implicit val dataSize = 9
+    implicit val dataSize = 19
 
     val pingSource = TimedObservable.hot(
       client.logging().map(Ping.parse).collect { case Some(ping) => ping }.publish

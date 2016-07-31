@@ -73,7 +73,7 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
   }
 
   "libfiu instrumented containers" - {
-    "with no instrumentation" in {
+    "with no instrumentation" ignore {
 //      val testSimulation: Observable[Notify] = ???
 //
 //      testSimulation should observe(Accept)
