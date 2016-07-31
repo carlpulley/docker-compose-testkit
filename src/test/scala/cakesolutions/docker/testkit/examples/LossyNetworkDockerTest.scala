@@ -87,8 +87,8 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   override def beforeAll(): Unit = {
     super.beforeAll()
     compose = up("lossy-network", yaml)
-    server = compose.service("c1").docker.head
-    client = compose.service("c2").docker.head
+    server = compose.service("server").docker.head
+    client = compose.service("client").docker.head
   }
 
   override def afterAll(): Unit = {
@@ -134,7 +134,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     }
 
     "failure" in {
-      Ping.parse(LogEvent(ZonedDateTime.now(), "PING c1 (172.22.0.2) 56(84) bytes of data.")) shouldEqual None
+      Ping.parse(LogEvent(ZonedDateTime.now(), "PING server (172.22.0.2) 56(84) bytes of data.")) shouldEqual None
     }
   }
 

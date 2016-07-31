@@ -168,7 +168,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       }
     }
 
-    "should auto-seed and form a stable cluster" ignore {
+    "should auto-seed and form a stable cluster" in {
       val clusterSensors = Map(
         "left.A" -> AkkaSensors(leftNodeA),
         "left.B" -> AkkaSensors(leftNodeB),
@@ -209,7 +209,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       testSimulation should observe(Accept)
     }
 
-    "Short GC pause should not split-brain cluster" ignore {
+    "Short GC pause should not split-brain cluster" in {
       val clusterSensors = Map(
         "left.A" -> AkkaSensors(leftNodeA),
         "left.B" -> AkkaSensors(leftNodeB),
