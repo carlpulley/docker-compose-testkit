@@ -51,7 +51,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   import LossyNetworkDockerTest._
   import MatchingAutomata._
 
-  implicit val testDuration = 3.minutes
+  implicit val testDuration = 5.minutes
   implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
   override implicit val patienceConfig = super.patienceConfig.copy(timeout = testDuration)
