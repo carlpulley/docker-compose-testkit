@@ -106,7 +106,11 @@ object MatchingAutomata {
   }
 }
 
-final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (initial: IOState, timeout: FiniteDuration, transition: PartialFunction[IOState, MatchingAutomata.StateFunction]) {
+final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
+  initial: IOState,
+  timeout: FiniteDuration,
+  transition: PartialFunction[IOState, MatchingAutomata.StateFunction]
+) {
   import MatchingAutomata._
 
   def run(inputs: TimedObservable[Input]*)(implicit system: ActorSystem, scheduler: Scheduler, testDuration: FiniteDuration, log: Logger): Observable[Notify] = {
