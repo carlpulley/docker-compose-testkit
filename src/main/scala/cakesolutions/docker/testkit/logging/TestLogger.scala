@@ -9,7 +9,7 @@ trait TestLogger {
   // TODO: make configurable based on log level
   implicit val log: Logger = new Logger {
     override def debug(message: String): Unit = {
-      // self.note(message)
+      self.note(message)
     }
 
     override def warn(message: String): Unit = {
