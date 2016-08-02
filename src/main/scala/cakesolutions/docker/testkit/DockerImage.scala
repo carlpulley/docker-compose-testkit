@@ -20,7 +20,7 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
 
   private def toLogEvent(rawLine: String): Try[LogEvent] = Try {
     val line = rawLine.trim
-    log.debug(line)
+    log.debug(s"$id $line")
     if (line.nonEmpty) {
       // 2016-06-11T10:10:00.154101534Z log-message
       val logLineRE = "^\\s*(\\d+\\-\\d+\\-\\d+T\\d+:\\d+:\\d+\\.\\d+Z)\\s+(.*)\\s*\\z".r
