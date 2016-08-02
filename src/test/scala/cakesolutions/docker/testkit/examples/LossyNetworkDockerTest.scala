@@ -129,12 +129,12 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
   "Ping parsing" - {
     "success" in {
-      Ping.parse(LogEvent(ZonedDateTime.now(), "64 bytes from 5da290c2becf4eafb8ffff1fb3e372ec_c1_1.5da290c2becf4eafb8ffff1fb3e372ec_common (172.22.0.2): icmp_seq=1 ttl=64 time=0.060 ms")) shouldEqual Some(Ping(1, 60000.nanoseconds))
-      Ping.parse(LogEvent(ZonedDateTime.now(), "64 bytes from 5da290c2becf4eafb8ffff1fb3e372ec_c1_1.5da290c2becf4eafb8ffff1fb3e372ec_common (172.22.0.2): icmp_seq=2 ttl=64 time=74 ms")) shouldEqual Some(Ping(2, 74.milliseconds))
+      Ping.parse(LogEvent(ZonedDateTime.now(), "1", "64 bytes from 5da290c2becf4eafb8ffff1fb3e372ec_c1_1.5da290c2becf4eafb8ffff1fb3e372ec_common (172.22.0.2): icmp_seq=1 ttl=64 time=0.060 ms")) shouldEqual Some(Ping(1, 60000.nanoseconds))
+      Ping.parse(LogEvent(ZonedDateTime.now(), "2", "64 bytes from 5da290c2becf4eafb8ffff1fb3e372ec_c1_1.5da290c2becf4eafb8ffff1fb3e372ec_common (172.22.0.2): icmp_seq=2 ttl=64 time=74 ms")) shouldEqual Some(Ping(2, 74.milliseconds))
     }
 
     "failure" in {
-      Ping.parse(LogEvent(ZonedDateTime.now(), "PING server (172.22.0.2) 56(84) bytes of data.")) shouldEqual None
+      Ping.parse(LogEvent(ZonedDateTime.now(), "3", "PING server (172.22.0.2) 56(84) bytes of data.")) shouldEqual None
     }
   }
 

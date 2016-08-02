@@ -1,6 +1,8 @@
 package cakesolutions.docker.testkit
 
 import java.io.File
+import java.time.{ZoneId, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit._
@@ -14,6 +16,7 @@ import org.json4s.native.JsonMethods._
 
 import scala.concurrent._
 import scala.sys.process._
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: Logger) {
@@ -62,6 +65,27 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
     parse(line).extract[DockerEvent]
   }
 
+//  private def toLogEvent(rawLine: String): Try[LogEvent] = Try {
+//    val line = rawLine.trim
+//    val image = ???
+//    log.debug(line)
+//    if (line.nonEmpty) {
+//      // 2016-06-11T10:10:00.154101534Z log-message
+//      val logLineRE = "^\\s*(\\d+\\-\\d+\\-\\d+T\\d+:\\d+:\\d+\\.\\d+Z)\\s+(.*)\\s*\\z".r
+//      val logLineMatch = logLineRE.findFirstMatchIn(line)
+//      // TODO: introduce ability to parse JSON out of log messages
+//      if (logLineMatch.isDefined) {
+//        val time = logLineMatch.get.group(1)
+//        val message = logLineMatch.get.group(2).trim
+//        LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), image, message)
+//      } else {
+//        LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), image, line)
+//      }
+//    } else {
+//      LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), image, "")
+//    }
+//  }
+
   def events()(implicit scheduler: Scheduler): Observable[DockerEvent] = {
     Observable.create[DockerEvent](OverflowStrategy.Unbounded) { subscriber =>
       val cancelP = Promise[Unit]
@@ -103,6 +127,74 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
         }
       }
     }
-    .cache
   }
+
+//  def logging()(implicit scheduler: Scheduler): Observable[LogEvent] = {
+//    Observable.create[LogEvent](OverflowStrategy.Unbounded) { subscriber =>
+//      val cancelP = Promise[Unit]
+//
+//      try {
+//        pool.execute(new Runnable {
+//          def run(): Unit = {
+//            blocking {
+//              val process =
+//                driver
+//                  .compose
+//                  .execute("-p", projectId.toString, "-f", yamlFile, "logs")
+//                  .run(ProcessLogger(
+//                    out => toLogEvent(out) match {
+//                      case Success(value: LogEvent) =>
+//                        try {
+//                          subscriber.onNext(value)
+//                        } catch {
+//                          case exn: Throwable =>
+//                            exn.printStackTrace()
+//                        }
+//                      case Failure(exn) =>
+//                        subscriber.onError(exn)
+//                    },
+//                    err => toLogEvent(err) match {
+//                      case Success(value: LogEvent) =>
+//                        try {
+//                          subscriber.onNext(value)
+//                        } catch {
+//                          case exn: Throwable =>
+//                            exn.printStackTrace()
+//                        }
+//                      case Failure(exn) =>
+//                        subscriber.onError(exn)
+//                    }
+//                  ))
+//
+//              cancelP.future.foreach(_ => process.destroy())
+//
+//              val exit = process.exitValue()
+//              subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), ???, s"sys.exit: $exit"))
+//
+//              if (cancelP.isCompleted) {
+//                subscriber.onComplete()
+//              } else {
+//                throw new CancellationException // FIXME: should we be doing this?
+//              }
+//            }
+//          }
+//        })
+//      } catch {
+//        case NonFatal(exn) =>
+//          log.error("Log parsing error", exn)
+//          if (! cancelP.isCompleted) {
+//            cancelP.failure(exn)
+//          }
+//          subscriber.onError(exn)
+//      }
+//
+//      new Cancelable {
+//        override def cancel(): Unit = {
+//          if (! cancelP.isCompleted) {
+//            cancelP.success(())
+//          }
+//        }
+//      }
+//    }
+//  }
 }

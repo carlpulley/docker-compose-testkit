@@ -126,6 +126,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   }
 
   override def afterAll(): Unit = {
+//    compose.logging().take(200).map(println)
     compose.down()
     super.afterAll()
   }

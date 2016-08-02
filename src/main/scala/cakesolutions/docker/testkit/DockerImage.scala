@@ -29,12 +29,12 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
       if (logLineMatch.isDefined) {
         val time = logLineMatch.get.group(1)
         val message = logLineMatch.get.group(2).trim
-        LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), message)
+        LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), id, message)
       } else {
-        LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), line)
+        LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), id, line)
       }
     } else {
-      LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), "")
+      LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), id, "")
     }
   }
 
@@ -79,7 +79,7 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
               cancelP.future.foreach(_ => process.destroy())
 
               val exit = process.exitValue()
-              subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), s"sys.exit: $exit"))
+              subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), id, s"sys.exit: $exit"))
 
               if (cancelP.isCompleted) {
                 subscriber.onComplete()

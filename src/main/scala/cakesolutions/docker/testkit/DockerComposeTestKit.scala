@@ -78,7 +78,7 @@ object DockerComposeTestKit {
 
   /////////////////////////
 
-  final case class LogEvent(time: ZonedDateTime, message: String)
+  final case class LogEvent(time: ZonedDateTime, image: String, message: String)
 
   final case class DockerEvent(/*time: ZonedDateTime,*/ service: String, action: String, attributes: Map[String, String], `type`: String, id: String)
 
