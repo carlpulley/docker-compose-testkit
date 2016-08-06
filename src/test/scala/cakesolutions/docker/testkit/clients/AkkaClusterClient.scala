@@ -12,6 +12,7 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 // References:
 // [1] https://github.com/akka/akka/blob/master/akka-cluster/src/main/scala/akka/cluster/ClusterJmx.scala
@@ -163,13 +164,20 @@ object AkkaClusterClient {
       }
     }
 
-    private def repeatedEval[Data](obs: => Observable[Data]): Observable[Data] = {
-      Observable
+    // TODO: configure these constants!
+    private def repeatedEval[Data](obs: => Observable[Data])(implicit scheduler: Scheduler): Observable[Data] = {
+      val x = Observable
         .repeatEval(obs)
         .flatten
         .sample(1.second)
         .timeoutOnSlowUpstream(30.seconds)
+        .dump("repeatedEval")
         .onErrorRestart(3)
+      x.materialize.foreach {
+        case OnError(_) =>
+          image.logging().foreach(println)
+      }
+      x
     }
 
     private implicit class HelperOperations(obs: Observable[String]) {
