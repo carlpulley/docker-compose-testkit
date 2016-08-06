@@ -8,7 +8,7 @@ import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent, Proj
 import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.network.ImpairmentSpec
 import monix.execution.{Cancelable, Scheduler}
-import monix.reactive.{Observable, OverflowStrategy, Pipe}
+import monix.reactive.{Observable, OverflowStrategy}
 
 import scala.concurrent._
 import scala.sys.process._

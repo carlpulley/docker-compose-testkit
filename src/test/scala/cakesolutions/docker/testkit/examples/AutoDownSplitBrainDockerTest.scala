@@ -3,6 +3,7 @@ package cakesolutions.docker.testkit.examples
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus
 import akka.cluster.MemberStatus.Up
+import akka.util.Timeout
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.AkkaClusterClient
@@ -62,7 +63,7 @@ object AutoDownSplitBrainDockerTest {
   case object WaitForUnreachable extends MatchingState
   case object WaitToBeAvailable extends MatchingState
   case object WaitToJoinCluster extends MatchingState
-  final case class ReceiveWelcomeMessages(count: Int) extends MatchingState
+  final case class ReceiveWelcomeMessages(images: Set[String]) extends MatchingState
 }
 
 class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
@@ -70,7 +71,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
   import DockerComposeTestKit._
   import MatchingAutomata._
 
-  implicit val testDuration = 2.minutes
+  implicit val testDuration: FiniteDuration = 3.minutes
   implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
   implicit val scheduler = Scheduler(actorSystem.dispatcher)
 
@@ -184,12 +185,12 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         }
       }
 
-      val welcome = MatchingAutomata[ReceiveWelcomeMessages, LogEvent](ReceiveWelcomeMessages(0)) {
-        case ReceiveWelcomeMessages(count) => {
-          case data: LogEvent if count == 2 && welcomeMessage(data) =>
+      val welcome = MatchingAutomata[ReceiveWelcomeMessages, LogEvent](ReceiveWelcomeMessages(Set.empty[String])) {
+        case ReceiveWelcomeMessages(members) => {
+          case data @ LogEvent(_, image, _) if members.size == 2 && welcomeMessage(data) && ! members.contains(image) =>
             Stop(Accept)
-          case data: LogEvent if welcomeMessage(data) =>
-            Goto(ReceiveWelcomeMessages(count + 1))
+          case data @ LogEvent(_, image, _) if welcomeMessage(data) =>
+            Goto(ReceiveWelcomeMessages(members + image))
         }
       }
 

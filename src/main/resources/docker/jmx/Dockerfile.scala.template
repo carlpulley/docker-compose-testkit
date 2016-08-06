@@ -1,7 +1,11 @@
 @( image: String )
 FROM @image
+
 COPY ./bin/cluster-console /usr/local/bin/cluster-console
 COPY ./bin/jmxsh-R5.jar /usr/local/bin/jmxsh-R5.jar
+
 USER root
+
 RUN chmod a+x /usr/local/bin/cluster-console
+
 USER daemon

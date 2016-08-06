@@ -9,12 +9,14 @@ import java.util.{TimeZone, UUID}
 import cakesolutions.docker.testkit.logging.Logger
 import net.jcazevedo.moultingyaml._
 import org.joda.time.{DateTime, DateTimeZone}
+import org.json4s.JsonAST.{JString, JArray, JNull}
+import org.json4s.native.JsonParser
 
 import scala.collection.JavaConversions._
 import scala.compat.java8.StreamConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
-import scala.util.Try
+import scala.util.{Success, Failure, Try}
 
 object DockerComposeTestKit {
 
@@ -82,6 +84,8 @@ object DockerComposeTestKit {
 
   final case class DockerEvent(/*time: ZonedDateTime,*/ service: String, action: String, attributes: Map[String, String], `type`: String, id: String)
 
+  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String])
+
   /////////////////////////
 
   final class ProjectId(val id: UUID) {
@@ -142,7 +146,7 @@ trait DockerComposeTestKit {
     }
   }
 
-  val pool: ExecutorService = Executors.newWorkStealingPool()
+  val pool: ExecutorService = Executors.newWorkStealingPool(16) // FIXME: allow this to be configurable?
 
   def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: Logger): DockerCompose = {
     val composeVersion = Try(driver.compose.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)
@@ -221,6 +225,24 @@ trait DockerComposeTestKit {
                 val imagePattern(repository, _) = baseImage
                 val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
                 val dockerDir = getClass.getResource(resources).getPath
+                // TODO: implement some real error handling here!
+                val entrypoint = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr))): @unchecked) match {
+                  case Success(JArray(list)) =>
+                    list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+                  case Success(JString(data)) =>
+                    data.split("\\s+").toSeq
+                  case Success(JNull) =>
+                    Seq.empty[String]
+                }
+                val cmd = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr))): @unchecked) match {
+                  case Success(JArray(list)) =>
+                    list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+                  case Success(JString(data)) =>
+                    data.split("\\s+").toSeq
+                  case Success(JNull) =>
+                    Seq.empty[String]
+                }
+                val dockerfile = DockerFile(entrypoint, cmd)
                 // TODO: optimise wrt service
                 // TODO: ensure copied file is not named Dockerfile
                 for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
@@ -230,7 +252,7 @@ trait DockerComposeTestKit {
                       case "jmx" =>
                         docker.jmx.template.Dockerfile(baseImage).body
                       case "libfiu" =>
-                        docker.libfiu.template.Dockerfile(baseImage).body
+                        docker.libfiu.template.Dockerfile(baseImage, dockerfile).body
                     }
                     val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$name/docker").dropRight(".scala.template".length))
                     val targetDir = new File(targetFile.getParent.toString)
@@ -276,9 +298,7 @@ trait DockerComposeTestKit {
     val yamlConfig = Try(driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "config").!!(log.stderr).parseYaml.asYamlObject)
     require(yamlConfig.isSuccess, yamlConfig.toString)
 
-    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "build").!!(log.stderr)
-
-    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "-d").!!(log.stderr)
+    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "--build", "--remove-orphans", "-d").!!(log.stderr)
 
     new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get)(pool, driver, log)
   }

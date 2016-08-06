@@ -30,9 +30,6 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       |    environment:
       |      WORDPRESS_DB_HOST: db:3306
       |      WORDPRESS_DB_PASSWORD: password
-      |      FIU_ENABLE: ""
-      |      FIU_CTRL_FIFO: "/tmp/fiu-ctrl"
-      |      LD_PRELOAD: "/usr/lib/fiu/fiu_run_preload.so /usr/lib/fiu/fiu_posix_preload.so"
       |    ports:
       |      - $webPort:80
       |    networks:
@@ -46,9 +43,6 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       |      image: mariadb
       |    environment:
       |      MYSQL_ROOT_PASSWORD: password
-      |      FIU_ENABLE: ""
-      |      FIU_CTRL_FIFO: "/tmp/fiu-ctrl"
-      |      LD_PRELOAD: "/usr/lib/fiu/fiu_run_preload.so /usr/lib/fiu/fiu_posix_preload.so"
       |    networks:
       |      - private
       |
@@ -73,7 +67,8 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
   }
 
   "libfiu instrumented containers" - {
-    "with no instrumentation" ignore {
+    // TODO: try limiting the containers memory with --memory?
+    "with no instrumentation" in {
 //      val testSimulation: Observable[Notify] = ???
 //
 //      testSimulation should observe(Accept)
