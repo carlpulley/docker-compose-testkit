@@ -146,7 +146,7 @@ trait DockerComposeTestKit {
     }
   }
 
-  val pool: ExecutorService = Executors.newWorkStealingPool(32) // FIXME: allow this to be configurable?
+  val pool: ExecutorService = Executors.newWorkStealingPool(64) // FIXME: allow this to be configurable?
 
   def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: Logger): DockerCompose = {
     val composeVersion = Try(driver.compose.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)

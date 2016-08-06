@@ -46,6 +46,8 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
         pool.execute(new Runnable {
           def run(): Unit = {
             blocking {
+              val thread = Thread.currentThread  // FIXME: debug
+              log.info("DEBUGGY: " + thread.getName + " (" + thread.getId + ")")  // FIXME: debug
               val sinceOption = Option(since).fold(Seq.empty[String])(ts => Seq("--since", ts.format(DateTimeFormatter.ISO_INSTANT)))
               val process =
                 driver
