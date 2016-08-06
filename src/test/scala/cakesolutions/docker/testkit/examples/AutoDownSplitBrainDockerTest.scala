@@ -3,7 +3,6 @@ package cakesolutions.docker.testkit.examples
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus
 import akka.cluster.MemberStatus.Up
-import akka.util.Timeout
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.AkkaClusterClient

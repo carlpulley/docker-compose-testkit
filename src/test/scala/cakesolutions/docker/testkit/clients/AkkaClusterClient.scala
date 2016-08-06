@@ -169,6 +169,7 @@ object AkkaClusterClient {
         .flatten
         .sample(1.second)
         .timeoutOnSlowUpstream(30.seconds)
+        .onErrorRestart(3)
     }
 
     private implicit class HelperOperations(obs: Observable[String]) {
