@@ -87,7 +87,6 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
           "CLUSTER_AUTO_DOWN" -> autoDown,
           "CLUSTER_SEED_NODE" -> s"akka.tcp://SBRTestCluster@$leaderNode:$akkaPort"
         ),
-        "cap_add" -> List("NET_ADMIN"),
         "expose" -> List(akkaPort),
         "networks" -> List(network1, network2)
       )
@@ -110,23 +109,19 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     )
   )
 
-  var compose: DockerCompose = _
-  var leftNodeA: DockerImage = _
-  var leftNodeB: DockerImage = _
-  var rightNodeA: DockerImage = _
-  var rightNodeB: DockerImage = _
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    compose = up("autodown-split-brain", yaml)
-    leftNodeA = compose.service("left-node-A").docker.head
-    leftNodeB = compose.service("left-node-B").docker.head
-    rightNodeA = compose.service("right-node-A").docker.head
-    rightNodeB = compose.service("right-node-B").docker.head
-  }
+  val compose: DockerCompose = up("autodown-split-brain", yaml)
+  val leftNodeA: DockerImage = compose.service("left-node-A").docker.head
+  val leftNodeB: DockerImage = compose.service("left-node-B").docker.head
+  val rightNodeA: DockerImage = compose.service("right-node-A").docker.head
+  val rightNodeB: DockerImage = compose.service("right-node-B").docker.head
+  val clusterSensors = Map(
+    "left.A" -> AkkaSensors(leftNodeA),
+    "left.B" -> AkkaSensors(leftNodeB),
+    "right.A" -> AkkaSensors(rightNodeA),
+    "right.B" -> AkkaSensors(rightNodeB)
+  )
 
   override def afterAll(): Unit = {
-//    compose.logging().take(200).map(println)
     compose.down()
     super.afterAll()
   }
@@ -169,14 +164,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       }
     }
 
-    "should auto-seed and form a stable cluster" in {
-      val clusterSensors = Map(
-        "left.A" -> AkkaSensors(leftNodeA),
-        "left.B" -> AkkaSensors(leftNodeB),
-        "right.A" -> AkkaSensors(rightNodeA),
-        "right.B" -> AkkaSensors(rightNodeB)
-      )
-
+    "should auto-seed and form a stable cluster" ignore {
       val superSeed = MatchingAutomata[WaitToJoinCluster.type, LogEvent](WaitToJoinCluster) {
         case _ => {
           case event: LogEvent if clusterJoin("left-node-A")(event) =>
@@ -210,14 +198,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
       testSimulation should observe(Accept)
     }
 
-    "Short GC pause should not split-brain cluster" in {
-      val clusterSensors = Map(
-        "left.A" -> AkkaSensors(leftNodeA),
-        "left.B" -> AkkaSensors(leftNodeB),
-        "right.A" -> AkkaSensors(rightNodeA),
-        "right.B" -> AkkaSensors(rightNodeB)
-      )
-
+    "Short GC pause should not split-brain cluster" ignore {
       val testSimulation = for {
         _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
         _ <- (stableCluster.run(clusterSensors("left.A").unreachable) && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
@@ -237,12 +218,14 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     }
 
     "network partition causes cluster to split-brain" in {
-      val clusterSensors = Map(
-        "left.A" -> AkkaSensors(leftNodeA),
-        "left.B" -> AkkaSensors(leftNodeB),
-        "right.A" -> AkkaSensors(rightNodeA),
-        "right.B" -> AkkaSensors(rightNodeB)
-      )
+//      val sniffLA = leftNodeA.exec("tcpdump", "-i", "lo", "-s", "0", "-A", "port", "9999").dump(s"left.A ${leftNodeA.id}").publish
+//      val sniffLB = leftNodeB.exec("tcpdump", "-i", "lo", "-s", "0", "-A", "port", "9999").dump(s"left.B ${leftNodeB.id}").publish
+//      val sniffRA = rightNodeA.exec("tcpdump", "-i", "lo", "-s", "0", "-A", "port", "9999").dump(s"right.A ${rightNodeA.id}").publish
+//      val sniffRB = rightNodeB.exec("tcpdump", "-i", "lo", "-s", "0", "-A", "port", "9999").dump(s"right.B ${rightNodeB.id}").publish
+//
+//      for(sniff <- Seq(sniffLA, sniffLB, sniffRA, sniffRB)) {
+//        sniff.connect()
+//      }
 
       val testSimulation = for {
         _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome

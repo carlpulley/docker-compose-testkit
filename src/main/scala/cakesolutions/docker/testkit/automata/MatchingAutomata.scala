@@ -213,14 +213,17 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
 
     val fsmObs: Observer[Input] = new Observer[Input] {
       override def onNext(elem: Input): Future[Ack] = {
+        log.debug(s"FSM Input Observer: onNext($elem)")
         self.ask(elem)(Timeout(testDuration)).mapTo[Ack]
       }
 
       override def onError(exn: Throwable): Unit = {
+        log.debug(s"FSM Input Observer: onError($exn)")
         stop(Some(exn))
       }
 
       override def onComplete(): Unit = {
+        log.debug("FSM Input Observer: onComplete()")
         if (state.timeout.isDefined) {
           self ! StateTimeout
         } else {

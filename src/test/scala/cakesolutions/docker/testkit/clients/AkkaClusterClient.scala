@@ -58,6 +58,7 @@ object AkkaClusterClient {
   implicit class AkkaClusterUtil(image: DockerImage) {
     private val clusterConsole = "/usr/local/bin/cluster-console"
     private val jmxHost = "127.0.0.1"
+    // TODO: make port configurable
     private val jmxPort = "9999"
 
     def down(member: AkkaClusterMember)(implicit scheduler: Scheduler): Observable[Unit] = {
@@ -165,13 +166,26 @@ object AkkaClusterClient {
 
     // TODO: configure these constants!
     private def repeatedEval[Data](obs: => Observable[Data])(implicit scheduler: Scheduler): Observable[Data] = {
-      Observable
-        .repeatEval(obs)
-        .flatten
-        .sample(1.second)
-        .timeoutOnSlowUpstream(30.seconds)
-        .dump("repeatedEval")
-        .onErrorRestart(3)
+      logError {
+        Observable
+          .repeatEval(obs)
+          .flatten
+          .sample(1.second)
+          .timeoutOnSlowUpstream(10.seconds)
+      }.onErrorRestart(3)
+    }
+
+    private def logError[Data](obs: => Observable[Data]): Observable[Data] = {
+      obs
+        .materialize
+        .map {
+          case event @ OnError(exn) =>
+            image.log.error(image.id, exn)
+            event
+          case event =>
+            event
+        }
+        .dematerialize
     }
 
     private implicit class HelperOperations(obs: Observable[String]) {
@@ -179,6 +193,8 @@ object AkkaClusterClient {
         obs
           .map {
             case reason if reason.startsWith("rpc error") =>
+              OnError(new RuntimeException(reason))
+            case reason if reason.startsWith("Akka cluster MBean is not available") =>
               OnError(new RuntimeException(reason))
             case data =>
               OnNext(data)

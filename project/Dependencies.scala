@@ -6,7 +6,7 @@ object Dependencies {
   val scalaVersion = "2.11.8"
 
   object akka {
-    private val version = "2.4.7"
+    private val version = "2.4.9-RC2"
 
     val actor = "com.typesafe.akka" %% "akka-actor" % version
     val cluster = "com.typesafe.akka" %% "akka-cluster" % version

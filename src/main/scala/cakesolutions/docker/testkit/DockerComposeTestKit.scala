@@ -3,7 +3,6 @@ package cakesolutions.docker.testkit
 import java.io.{File, PrintWriter}
 import java.nio.file.{StandardCopyOption, Files, Paths}
 import java.time.ZonedDateTime
-import java.util.concurrent.{ExecutorService, Executors}
 import java.util.{TimeZone, UUID}
 
 import cakesolutions.docker.testkit.logging.Logger
@@ -145,8 +144,6 @@ trait DockerComposeTestKit {
       }).toOption
     }
   }
-
-  val pool: ExecutorService = Executors.newFixedThreadPool(16) // FIXME: allow this to be configurable?
 
   def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: Logger): DockerCompose = {
     val composeVersion = Try(driver.compose.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)
@@ -300,6 +297,6 @@ trait DockerComposeTestKit {
 
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "--build", "--remove-orphans", "-d").!!(log.stderr)
 
-    new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get)(pool, driver, log)
+    new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get)(driver, log)
   }
 }

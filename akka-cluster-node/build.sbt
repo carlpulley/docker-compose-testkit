@@ -23,8 +23,5 @@ mainClass in Compile := Some("cakesolutions.akka.cluster.Node")
 dockerBaseImage := "java:openjdk-8-jre"
 
 mappings in Universal ++= directory(s"${name.value}/src/main/resources")
-// Reference:
-// [1] https://github.com/akka/akka/tree/master/akka-kernel/src/main/dist/bin
-mappings in Universal ++= directory(s"${name.value}/src/bin")
 
 bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../resources/application.conf""""

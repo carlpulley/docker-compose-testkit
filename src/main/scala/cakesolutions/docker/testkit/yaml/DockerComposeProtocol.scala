@@ -2,11 +2,10 @@ package cakesolutions.docker.testkit
 
 package yaml
 
-import java.util.concurrent.ExecutorService
-
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, ProjectId}
 import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.network.ImpairmentSpec
+import monix.execution.Scheduler
 import net.jcazevedo.moultingyaml._
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -20,7 +19,7 @@ object DockerComposeProtocol {
   final case class NetworkDescription(Name: String, Id: String, Scope: String, Driver: String, EnableIPv6: Boolean, IPAM: IpamDescription, Internal: Boolean, Containers: Map[String, ContainerNetworkDescription], Options: Map[String, String], Labels: Map[String, String])
 }
 
-private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DefaultYamlProtocol {
+private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: String)(implicit pool: Scheduler, driver: Driver, log: Logger) extends DefaultYamlProtocol {
   import DockerComposeProtocol._
   import ImpairmentSpec._
 
@@ -33,7 +32,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
         .execute("-p", projectId.toString, "-f", yamlFile, "ps", "-q", name)
         .lineStream_!(log.devNull)
         .toVector
-        .map(new DockerImage(projectId, _))
+        .map(new DockerImage(projectId, _, pool)(driver, log))
     }
   }
 

@@ -26,8 +26,6 @@ before_install:
 script:
   - cat /proc/cpuinfo
   - cat /proc/meminfo
-  - ulimit -a
-  - sysctl -a
   - docker version
   - docker-compose version
   - sbt ++$TRAVIS_SCALA_VERSION clean docker:publish-local

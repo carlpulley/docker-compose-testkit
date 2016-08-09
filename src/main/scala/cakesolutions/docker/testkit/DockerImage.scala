@@ -2,7 +2,6 @@ package cakesolutions.docker.testkit
 
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneId, ZonedDateTime}
-import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent, ProjectId}
 import cakesolutions.docker.testkit.logging.Logger
@@ -15,7 +14,7 @@ import scala.sys.process._
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(implicit pool: ExecutorService, driver: Driver, log: Logger) extends DockerInspection(id) {
+final class DockerImage private[testkit] (projectId: ProjectId, val id: String, pool: Scheduler)(implicit driver: Driver, val log: Logger) extends DockerInspection(id) {
   import ImpairmentSpec._
 
   private def toLogEvent(rawLine: String): Try[LogEvent] = Try {
@@ -52,39 +51,48 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
                   .docker
                   .execute(Seq("logs", "-f") ++ sinceOption ++ Seq("-t", id): _*)
                   .run(ProcessLogger(
-                    out => toLogEvent(out) match {
-                      case Success(value: LogEvent) =>
-                        try {
-                          subscriber.onNext(value)
-                        } catch {
-                          case exn: Throwable =>
-                            exn.printStackTrace()
+                    { out =>
+                      if (! cancelP.isCompleted) {
+                        toLogEvent(out) match {
+                          case Success(value: LogEvent) =>
+                            try {
+                              subscriber.onNext(value)
+                            } catch {
+                              case exn: Throwable =>
+                                exn.printStackTrace()
+                            }
+                          case Failure(exn) =>
+                            subscriber.onError(exn)
                         }
-                      case Failure(exn) =>
-                        subscriber.onError(exn)
+                      }
                     },
-                    err => toLogEvent(err) match {
-                      case Success(value: LogEvent) =>
-                        try {
-                          subscriber.onNext(value)
-                        } catch {
-                          case exn: Throwable =>
-                            exn.printStackTrace()
+                    { err =>
+                      if (! cancelP.isCompleted) {
+                        toLogEvent(err) match {
+                          case Success(value: LogEvent) =>
+                            try {
+                              subscriber.onNext(value)
+                            } catch {
+                              case exn: Throwable =>
+                                exn.printStackTrace()
+                            }
+                          case Failure(exn) =>
+                            subscriber.onError(exn)
                         }
-                      case Failure(exn) =>
-                        subscriber.onError(exn)
+                      }
                     }
                   ))
 
-              cancelP.future.foreach(_ => process.destroy())
+              cancelP.future.onComplete(_ => process.destroy())(pool)
 
+              // 143 = 128 + SIGTERM
               val exit = process.exitValue()
-              subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), id, s"sys.exit: $exit"))
-
-              if (cancelP.isCompleted) {
+              if (exit != 0 && exit != 143) {
+                throw new RuntimeException(s"Logging exited with value $exit")
+              }
+              if (! cancelP.isCompleted) {
+                cancelP.success(())
                 subscriber.onComplete()
-              } else {
-                //throw new CancellationException // FIXME: should we be doing this?
               }
             }
           }
@@ -94,14 +102,15 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
           log.error("Log parsing error", exn)
           if (! cancelP.isCompleted) {
             cancelP.failure(exn)
+            subscriber.onError(exn)
           }
-          subscriber.onError(exn)
       }
 
       new Cancelable {
         override def cancel(): Unit = {
           if (! cancelP.isCompleted) {
             cancelP.success(())
+            subscriber.onComplete()
           }
         }
       }
@@ -120,42 +129,54 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
                 driver
                   .docker
                   .execute("exec" +: "-t" +: id +: command: _*)
-                  .run(ProcessLogger(out => subscriber.onNext(out), err => subscriber.onNext(err)))
+                  .run(ProcessLogger(
+                    { out =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(out)
+                      }
+                    },
+                    { err =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(err)
+                      }
+                    }
+                  ))
 
-              cancelP.future.foreach(_ => process.destroy())
+              cancelP.future.onComplete(_ => process.destroy())(pool)
 
               // 143 = 128 + SIGTERM
               val exit = process.exitValue()
               if (exit != 0 && exit != 143) {
-                throw new RuntimeException(s"Command exited with value $exit")
+                throw new RuntimeException(s"$command exited with value $exit")
               }
               if (! cancelP.isCompleted) {
-                cancelP.failure(new CancellationException)
+                cancelP.success(())
+                subscriber.onComplete()
               }
-              subscriber.onComplete()
             }
           }
         })
       } catch {
         case NonFatal(exn) =>
-          log.error("Command processing error", exn)
+          log.error(s"$command processing error", exn)
           if (! cancelP.isCompleted) {
             cancelP.failure(exn)
+            subscriber.onError(exn)
           }
-          subscriber.onError(exn)
       }
 
       new Cancelable {
         override def cancel(): Unit = {
           if (! cancelP.isCompleted) {
             cancelP.success(())
+            subscriber.onComplete()
           }
         }
       }
     }
   }
 
-  def stats(command: String)(implicit scheduler: Scheduler): Observable[String] = {
+  def stats()(implicit scheduler: Scheduler): Observable[String] = {
     Observable.create[String](OverflowStrategy.Unbounded) { subscriber =>
       val cancelP = Promise[Unit]
 
@@ -168,16 +189,30 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
                 driver
                   .docker
                   .execute("stats", id)
-                  .run(ProcessLogger(out => subscriber.onNext(out), err => subscriber.onNext(err)))
+                  .run(ProcessLogger(
+                    { out =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(out)
+                      }
+                    },
+                    { err =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(err)
+                      }
+                    }
+                  ))
 
-              cancelP.future.foreach(_ => process.destroy())
+              cancelP.future.onComplete(_ => process.destroy())(pool)
 
+              // 143 = 128 + SIGTERM
               val exit = process.exitValue()
-              if (! cancelP.isCompleted) {
-                cancelP.failure(new CancellationException)
+              if (exit != 0 && exit != 143) {
+                throw new RuntimeException(s"Statistics exited with value $exit")
               }
-              subscriber.onNext(s"sys.exit: $exit")
-              subscriber.onComplete()
+              if (! cancelP.isCompleted) {
+                cancelP.success(())
+                subscriber.onComplete()
+              }
             }
           }
         })
@@ -186,14 +221,15 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String)(
           log.error("Statistics processing error", exn)
           if (! cancelP.isCompleted) {
             cancelP.failure(exn)
+            subscriber.onError(exn)
           }
-          subscriber.onError(exn)
       }
 
       new Cancelable {
         override def cancel(): Unit = {
           if (! cancelP.isCompleted) {
             cancelP.success(())
+            subscriber.onComplete()
           }
         }
       }

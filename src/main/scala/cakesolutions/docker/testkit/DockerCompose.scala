@@ -3,7 +3,6 @@ package cakesolutions.docker.testkit
 import java.io.File
 import java.time.{ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.ExecutorService
 
 import cakesolutions.docker.testkit.DockerComposeTestKit._
 import cakesolutions.docker.testkit.logging.Logger
@@ -19,10 +18,11 @@ import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit pool: ExecutorService, driver: Driver, log: Logger) {
+final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit driver: Driver, log: Logger) {
   require(Set("services", "networks", "volumes").subsetOf(config.fields.keySet.map(_.asInstanceOf[YamlString].value)))
 
-  val protocol = new DockerComposeProtocol(projectId, yamlFile)
+  val pool = Scheduler.io(projectId.toString)
+  val protocol = new DockerComposeProtocol(projectId, yamlFile)(pool, driver, log)
 
   import protocol._
 
@@ -45,7 +45,7 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
       value.value -> YamlObject(defn.asYamlObject.fields + (name -> value)).convertTo[protocol.Volume]
     }
   lazy val docker: Map[String, DockerImage] =
-    Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id)): _*)
+    Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id, pool)(driver, log)): _*)
 
   // TODO: handle paused containers; removing built images
   def down(): Unit = {
