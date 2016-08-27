@@ -6,7 +6,7 @@ object Dependencies {
   val scalaVersion = "2.11.8"
 
   object akka {
-    private val version = "2.4.9-RC2"
+    private val version = "2.4.9"
 
     val actor = "com.typesafe.akka" %% "akka-actor" % version
     val cluster = "com.typesafe.akka" %% "akka-cluster" % version
@@ -24,7 +24,7 @@ object Dependencies {
   val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0-RC3"
 
   object json4s {
-    private val version = "3.3.0"
+    private val version = "3.4.0"
 
     val jackson = "org.json4s" %% "json4s-jackson" % version
     val native = "org.json4s" %% "json4s-native" % version
@@ -33,13 +33,21 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.7"
 
   object monix {
-    private val version = "2.0-RC6"
+    private val version = "2.0-RC13"
 
-    val core = "io.monix" %% "monix" % "2.0-RC6"
+    val core = "io.monix" %% "monix" % version
     val reactive = "io.monix" %% "monix-reactive" % version
   }
 
-  val pprint = "com.lihaoyi" %% "pprint" % "0.4.1"
-  val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.4.2"
+  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.12.1"
+  val scalatest = "org.scalatest" %% "scalatest" % "3.0.0-M15"
   val yaml = "net.jcazevedo" %% "moultingyaml" % "0.2"
+
+  object zipkin {
+    private val version = "0.5.1"
+
+    val core = "com.github.levkhomich" %% "akka-tracing-core" % version
+    val http = "com.github.levkhomich" %% "akka-tracing-http" % version
+  }
 }

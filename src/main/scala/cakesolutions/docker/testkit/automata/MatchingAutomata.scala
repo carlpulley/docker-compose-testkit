@@ -4,6 +4,7 @@ import akka.actor.SupervisorStrategy.Decider
 import akka.actor._
 import akka.contrib.pattern.ReceivePipeline
 import akka.contrib.pattern.ReceivePipeline.{HandledCompletely, Inner}
+import akka.event.Logging
 import akka.pattern.ask
 import akka.util.Timeout
 import cakesolutions.docker.testkit.TimedObservable
@@ -19,11 +20,17 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 object MatchingAutomata {
-  sealed trait Notify
-  case object Accept extends Notify
+  sealed trait Notify {
+    def invert: Notify
+  }
+  final case class Accept(failures: String*) extends Notify {
+    override def invert: Notify = {
+      Fail(failures: _*)
+    }
+  }
   final case class Fail(reasons: String*) extends Exception with Notify {
-    override def toString: String = {
-      s"Fail($reasons)"
+    override def invert: Notify = {
+      Accept(reasons: _*)
     }
   }
 
@@ -63,20 +70,19 @@ object MatchingAutomata {
   }
 
   final def not(obs: Observable[Notify]): Observable[Notify] = {
-    obs.map {
-      case Accept =>
-        Fail("negation")
-      case _: Fail =>
-        Accept
-    }
+    obs.map(_.invert)
   }
 
+//  final def not[X](f: X => Observable[Notify]): X => Observable[Notify] = { x =>
+//    not(f(x))
+//  }
+
   implicit class ObservableHelper(obs: Observable[Notify]) {
-    final def outcome: Observable[Accept.type] = {
+    final def outcome: Observable[Accept] = {
       obs
         .flatMap {
-          case Accept =>
-            Observable(Accept)
+          case accept: Accept =>
+            Observable(accept)
           case exn: Fail =>
             Observable.raiseError(exn)
         }
@@ -84,40 +90,82 @@ object MatchingAutomata {
 
     final def &&(that: Observable[Notify]): Observable[Notify] = {
       obs.zip(that).map {
-        case (Accept, Accept) =>
-          Accept
+        case (Accept(left @ _*), Accept(right @ _*)) =>
+          Accept(left ++ right: _*)
         case (Fail(left @ _*), Fail(right @ _*)) =>
           Fail(left ++ right: _*)
-        case (Fail(left @ _*), _) =>
-          Fail(left: _*)
-        case (_, Fail(right @ _*)) =>
-          Fail(right: _*)
+        case (Fail(left @ _*), Accept(right @ _*)) =>
+          Fail(left ++ right: _*)
+        case (Accept(left @ _*), Fail(right @ _*)) =>
+          Fail(left ++ right: _*)
       }
     }
 
     final def ||(that: Observable[Notify]): Observable[Notify] = {
       obs.zip(that).map {
-        case (Fail(left @  _*), Fail(right @ _*)) =>
+        case (Accept(left @ _*), Accept(right @ _*)) =>
+          Accept(left ++ right: _*)
+        case (Fail(left @ _*), Fail(right @ _*)) =>
           Fail(left ++ right: _*)
-        case _ =>
-          Accept
+        case (Fail(left @ _*), Accept(right @ _*)) =>
+          Accept(left ++ right: _*)
+        case (Accept(left @ _*), Fail(right @ _*)) =>
+          Accept(left ++ right: _*)
       }
+    }
+  }
+
+  implicit class BehaviourHelper[X](left: X => Observable[Notify]) {
+    final def outcome: X => Observable[Accept] = { x =>
+      left(x).outcome
+    }
+
+    final def &&(right: X => Observable[Notify]): X => Observable[Notify] = { x =>
+      left(x) && right(x)
+    }
+
+    final def ||(right: X => Observable[Notify]): X => Observable[Notify] = { x =>
+      left(x) || right(x)
     }
   }
 }
 
-final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
+final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
   initial: IOState,
   timeout: FiniteDuration,
   transition: PartialFunction[IOState, MatchingAutomata.StateFunction]
 ) {
   import MatchingAutomata._
 
-  def run(inputs: TimedObservable[Input]*)(implicit system: ActorSystem, scheduler: Scheduler, testDuration: FiniteDuration, log: Logger): Observable[Notify] = {
-    if (inputs.isEmpty) {
+  def run(
+    outputs: TimedObservable[Output]*
+  )(
+    implicit system: ActorSystem,
+    scheduler: Scheduler,
+    testDuration: FiniteDuration,
+    log: Logger
+  ): Observable[Notify] = {
+    val fsm = runWith[Unit]()(outputs: _*)
+
+    fsm(Seq.empty[Observable[Unit]])
+  }
+
+  def runWith[Input : ClassTag](
+    inputs: Observer[Input]*
+  )(
+    outputs: TimedObservable[Output]*
+  )(
+    implicit system: ActorSystem,
+    scheduler: Scheduler,
+    testDuration: FiniteDuration,
+    log: Logger
+  ): Seq[Observable[Input]] => Observable[Notify] = { traces =>
+    require(traces.length == inputs.length)
+
+    if (outputs.isEmpty) {
       Observable.empty[Notify]
     } else {
-      val checker = system.actorOf(Props(new MatchingAutomataFSM(initial, timeout, transition, inputs)))
+      val checker = system.actorOf(Props(new IOAutomata[Input](initial, timeout, transition, outputs, inputs, traces)))
 
       Observable.create(OverflowStrategy.Unbounded) { (sub: Subscriber[Notify]) =>
         checker ! Subscribe(sub)
@@ -163,13 +211,13 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
     // FIXME: set via configuration!
     val traceSize: Int = 100
 
-    private[this] var trace = Vector.empty[(State, Input)]
+    private[this] var trace = Vector.empty[(State, Output)]
 
     def getState: State
 
-    def getLoggedTrace: Vector[(State, Input)] = trace
+    def getLoggedTrace: Vector[(State, Output)] = trace
 
-    private def addEvent(state: State, event: Input): Unit = {
+    private def addEvent(state: State, event: Output): Unit = {
       if (trace.length < traceSize) {
         trace = trace :+ (state, event)
       } else {
@@ -178,17 +226,19 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
     }
 
     pipelineOuter {
-      case event: Input =>
+      case event: Output =>
         addEvent(getState, event)
         Inner(event)
     }
   }
 
-  private class MatchingAutomataFSM(
+  private class IOAutomata[Input](
     initial: IOState,
     timeout: FiniteDuration,
     transition: PartialFunction[IOState, StateFunction],
-    inputs: Seq[TimedObservable[Input]]
+    outputs: Seq[TimedObservable[Output]],
+    inputs: Seq[Observer[Input]],
+    traces: Seq[Observable[Input]]
   )(
     implicit testDuration: FiniteDuration,
     scheduler: Scheduler,
@@ -197,6 +247,8 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
     with ReceivePipeline
     with SubscriberHandling
     with EventLogger {
+
+    require(inputs.length == traces.length)
 
     override val supervisorStrategy: SupervisorStrategy = {
       def stoppingDecider: Decider = {
@@ -211,8 +263,8 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
       stop(Some(TestTimeout))
     }
 
-    val fsmObs: Observer[Input] = new Observer[Input] {
-      override def onNext(elem: Input): Future[Ack] = {
+    val fsmObs: Observer[Output] = new Observer[Output] {
+      override def onNext(elem: Output): Future[Ack] = {
         log.debug(s"FSM Input Observer: onNext($elem)")
         self.ask(elem)(Timeout(testDuration)).mapTo[Ack]
       }
@@ -232,7 +284,8 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
       }
     }
 
-    val inputSubscription: Cancelable = Observable(inputs.map(_.observable): _*).merge.subscribe(fsmObs)
+    val inputSubscriptions: Seq[Cancelable] = inputs.zipWithIndex.map { case (point, index) => traces(index).subscribe(point) }
+    val outputSubscription: Cancelable = Observable(outputs.map(_.observable): _*).merge.subscribe(fsmObs)
 
     private[this] var state: State = State(initial, Option(timeout), callbacks(Option(timeout)): _*)
 
@@ -261,7 +314,7 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
         }
       case StateTimeout =>
         stop(Some(StateTimeout))
-      case event: Input if transition.isDefinedAt(state.state) =>
+      case event: Output if transition.isDefinedAt(state.state) =>
         if (transition(state.state).isDefinedAt(event)) {
           if (state.timeout.isEmpty) {
             log.info(s"@ ${state.state} matched: $event")
@@ -277,19 +330,25 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
             case _ =>
               None
           }
-          Option(action.emit).foreach(msg => getSubscribers.foreach(_.onNext(msg)))
+          action match {
+            case Stop(_: Fail) =>
+              // Sending to subscribers will be handled in stop via nextState
+            case _ =>
+              Option(action.emit)
+                .foreach(msg => getSubscribers.foreach(_.onNext(msg)))
+          }
           state = nextState(action, timeout)
         } catch {
           case NonFatal(exn) =>
             stop(Some(UnexpectedException(exn, event)))
         }
-      case event: Input =>
+      case event: Output =>
         state = nextState(Stay(), state.timeout)
     }
 
     private def callbacks(timeout: Option[FiniteDuration]): Seq[Cancelable] = {
       timeout.fold(Seq.empty[Cancelable]) { delay =>
-        inputs.map(_.scheduler.scheduleOnce(delay) {
+        outputs.map(_.scheduler.scheduleOnce(delay) {
             self ! StateTimeout
             Option(state).foreach(_.callbacks.foreach(_.cancel()))
         })
@@ -305,7 +364,7 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
         case Stop(exn: Fail) =>
           stop(Some(exn))
           state
-        case Stop(Accept) =>
+        case Stop(_: Accept) =>
           stop()
           state.callbacks.foreach(_.cancel())
           state
@@ -318,7 +377,8 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
     private def stop(reason: Option[Throwable] = None): Unit = {
       Option(state).foreach(_.callbacks.foreach(_.cancel()))
       sender() ! Ack.Stop
-      inputSubscription.cancel()
+      inputSubscriptions.foreach(_.cancel())
+      outputSubscription.cancel()
       val errMsg = reason.map {
         case Shutdown =>
           s"FSM upstreams closed in state $state"
@@ -339,12 +399,12 @@ final class MatchingAutomata[IOState : ClassTag, Input : ClassTag] private (
             exn
         }
         .foreach { exn =>
-          if (getLoggedTrace.length == traceSize) {
-            log.error(s"${errMsg.get} - last $traceSize events (oldest first): ${pprint.tokenize(getLoggedTrace).mkString("")}", exn)
+          val exnMsg = if (getLoggedTrace.length == traceSize) {
+            s"${errMsg.get} - last $traceSize events (oldest first): ${pprint.tokenize(getLoggedTrace).mkString("")}\n${Logging.stackTraceFor(exn)}"
           } else {
-            log.error(s"${errMsg.get} - events (oldest first): ${pprint.tokenize(getLoggedTrace).mkString("")}", exn)
+            s"${errMsg.get} - events (oldest first): ${pprint.tokenize(getLoggedTrace).mkString("")}\n${Logging.stackTraceFor(exn)}"
           }
-          getSubscribers.foreach(_.onNext(Fail(exn.toString)))
+          getSubscribers.foreach(_.onNext(Fail(exnMsg)))
         }
       getSubscribers.foreach(_.onComplete())
       context.stop(self)

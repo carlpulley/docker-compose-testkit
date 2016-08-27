@@ -20,7 +20,7 @@ mainClass in Compile := Some("cakesolutions.akka.cluster.Node")
 
 // Dockerfile setup
 
-dockerBaseImage := "java:openjdk-8-jre"
+dockerBaseImage := "openjdk:8-jre"
 
 mappings in Universal ++= directory(s"${name.value}/src/main/resources")
 

@@ -29,8 +29,12 @@ lazy val root = (project in file(".")).
       monix.core,
       monix.reactive,
       pprint,
+      scalacheck,
       scalatest,
       yaml
+    ),
+    dependencyOverrides ++= Set(
+      java8Compat
     )
   ).
   aggregate(

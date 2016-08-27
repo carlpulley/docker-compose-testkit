@@ -1,10 +1,10 @@
 package cakesolutions.docker.testkit.logging
 
 import akka.event.Logging
-import org.scalatest.{Alerting, Informing, Notifying}
+import org.scalatest.{Alerting, Notifying}
 
 trait TestLogger {
-  self: Informing with Notifying with Alerting =>
+  self: Notifying with Alerting =>
 
   // TODO: make configurable based on log level
   implicit val log: Logger = new Logger {
@@ -25,7 +25,7 @@ trait TestLogger {
     }
 
     override def info(message: String): Unit = {
-      self.info(message)
+      self.note(message)
     }
 
     private def exceptionStr(exn: Throwable): String = {

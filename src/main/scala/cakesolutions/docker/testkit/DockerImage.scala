@@ -236,6 +236,66 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String, 
     }
   }
 
+  def events(filters: String*)(implicit scheduler: Scheduler): Observable[String] = {
+    Observable.create[String](OverflowStrategy.Unbounded) { subscriber =>
+      val cancelP = Promise[Unit]
+
+      try {
+        pool.execute(new Runnable {
+          def run(): Unit = {
+            blocking {
+              // TODO: parse line into a Events instance
+              val process =
+                driver
+                  .docker
+                  .execute("events" +: "--filter" +: s"container=$id" +: filters.flatMap(kv => Seq("--filter", kv)): _*)
+                  .run(ProcessLogger(
+                    { out =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(out)
+                      }
+                    },
+                    { err =>
+                      if (! cancelP.isCompleted) {
+                        subscriber.onNext(err)
+                      }
+                    }
+                  ))
+
+              cancelP.future.onComplete(_ => process.destroy())(pool)
+
+              // 143 = 128 + SIGTERM
+              val exit = process.exitValue()
+              if (exit != 0 && exit != 143) {
+                throw new RuntimeException(s"Events exited with value $exit")
+              }
+              if (! cancelP.isCompleted) {
+                cancelP.success(())
+                subscriber.onComplete()
+              }
+            }
+          }
+        })
+      } catch {
+        case NonFatal(exn) =>
+          log.error("Events processing error", exn)
+          if (! cancelP.isCompleted) {
+            cancelP.failure(exn)
+            subscriber.onError(exn)
+          }
+      }
+
+      new Cancelable {
+        override def cancel(): Unit = {
+          if (! cancelP.isCompleted) {
+            cancelP.success(())
+            subscriber.onComplete()
+          }
+        }
+      }
+    }
+  }
+
   def export(out: String): Unit = {
     log.debug(driver.docker.execute("export", id, "-o", out).!!(log.stderr))
   }

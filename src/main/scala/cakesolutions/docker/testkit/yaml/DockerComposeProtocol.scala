@@ -46,7 +46,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
 
         driver
           .docker
-          .execute(Seq("exec", "-t", container, "tc", "qdisc", "replace", "dev", s"eth${nic(container)}", "root", "netem") ++ spec: _*).!!
+          .execute(Seq("exec", "--user", "root", "-t", container, "tc", "qdisc", "replace", "dev", s"eth${nic(container)}", "root", "netem") ++ spec: _*).!!
       }
     }
 
@@ -72,7 +72,7 @@ private[testkit] class DockerComposeProtocol(projectId: ProjectId, yamlFile: Str
       inspect.Containers.keys.foreach { container =>
         driver
           .docker
-          .execute("exec", "-t", container, "tc", "qdisc", "del", "dev", s"eth${nic(container)}", "root", "netem").!!
+          .execute("exec", "--user", "root", "-t", container, "tc", "qdisc", "del", "dev", s"eth${nic(container)}", "root", "netem").!!
       }
     }
 

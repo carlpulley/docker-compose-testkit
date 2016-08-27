@@ -65,7 +65,8 @@ object AkkaClusterClient {
       image
         .exec(clusterConsole, jmxHost, jmxPort, "down", member.address.toString)
         .withErrorChecking
-        .tail
+        .dropWhile(line => ! line.startsWith(s"Marking ${member.address} as DOWN"))
+        .drop(1)
         .headF
         .map(_ => ())
     }
@@ -75,7 +76,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "is-available")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith(s"Checking if member node on $jmxHost is AVAILABLE"))
+          .drop(1)
           .headF
           .map(line => parse(line).extract[Boolean])
       }
@@ -86,7 +88,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "is-singleton")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith("Checking for singleton cluster"))
+          .drop(1)
           .headF
           .map(line => parse(line).extract[Boolean])
       }
@@ -96,7 +99,8 @@ object AkkaClusterClient {
       image
         .exec(clusterConsole, jmxHost, jmxPort, "join", member.address.toString)
         .withErrorChecking
-        .tail
+        .dropWhile(line => ! line.startsWith(s"$jmxHost is JOINING cluster node ${member.address}"))
+        .drop(1)
         .headF
         .map(_ => ())
     }
@@ -106,7 +110,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "leader")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith("Checking leader status"))
+          .drop(1)
           .headF
           .map(AddressFromURIString.parse)
       }
@@ -116,7 +121,8 @@ object AkkaClusterClient {
       image
         .exec(clusterConsole, jmxHost, jmxPort, "leave", member.address.toString)
         .withErrorChecking
-        .tail
+        .dropWhile(line => ! line.startsWith(s"Scheduling ${member.address} to LEAVE cluster"))
+        .drop(1)
         .headF
         .map(_ => ())
     }
@@ -126,7 +132,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "cluster-status")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith("Querying cluster status"))
+          .drop(1)
           .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
           .collect {
             case lines if lines.nonEmpty =>
@@ -145,7 +152,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "member-status")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith(s"Querying member status for $jmxHost"))
+          .drop(1)
           .headF
           .map(line => parse(line).extract[MemberStatus])
       }
@@ -156,7 +164,8 @@ object AkkaClusterClient {
         image
           .exec(clusterConsole, jmxHost, jmxPort, "unreachable")
           .withErrorChecking
-          .tail
+          .dropWhile(line => ! line.startsWith("Querying unreachable members"))
+          .drop(1)
           .foldLeftF(Vector.empty[String]) { case (matches, value) => matches :+ value }
           .map { lines =>
             lines.map(_.trim).filterNot(_.isEmpty).toList.flatMap(_.split(",").map(AddressFromURIString.parse))

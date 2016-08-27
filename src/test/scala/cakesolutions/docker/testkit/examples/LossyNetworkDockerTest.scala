@@ -10,9 +10,8 @@ import cakesolutions.docker.testkit.matchers.ObservableMatcher._
 import cakesolutions.docker.testkit.network.ImpairmentSpec.{Delay, Loss}
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
 import monix.execution.Scheduler
-import monix.reactive.{Pipe, Observable}
 import org.scalatest._
-import org.scalatest.concurrent.{AsyncAssertions, Eventually}
+import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.duration._
 
@@ -46,7 +45,7 @@ object LossyNetworkDockerTest {
   }
 }
 
-class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with Eventually with AsyncAssertions with DockerComposeTestKit with TestLogger {
+class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with Eventually with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
   import LossyNetworkDockerTest._
   import MatchingAutomata._
@@ -147,13 +146,13 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
     val warmup = fsm { meanSeqDiff => meanTime =>
       note("warmup")
-      Accept
+      Accept()
     }
 
     val normal = fsm { meanSeqDiff => meanTime =>
       if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
         note("normal network")
-        Accept
+        Accept()
       } else {
         Fail(s"$meanSeqDiff and $meanTime")
       }
@@ -162,7 +161,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     val delayed = fsm { meanSeqDiff => meanTime =>
       if (100.milliseconds <= meanTime) {
         note("delayed network")
-        Accept
+        Accept()
       } else {
         Fail(s"$meanSeqDiff and $meanTime")
       }
@@ -171,7 +170,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     val lossy = fsm { meanSeqDiff => meanTime =>
       if (2 <= meanSeqDiff) {
         note("lossy network")
-        Accept
+        Accept()
       } else {
         Fail(s"$meanSeqDiff and $meanTime")
       }
@@ -188,9 +187,9 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
       _ <- lossy.run(pingSource).outcome
       _ = compose.network("common").reset()
       _ <- normal.run(pingSource).outcome
-    } yield Accept
+    } yield Accept()
 
-    testSimulation should observe(Accept)
+    testSimulation should observe(Accept())
   }
 
 }

@@ -7,12 +7,15 @@ import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.AkkaClusterClient
 import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
-import cakesolutions.docker.testkit.logging.TestLogger
+import cakesolutions.docker.testkit.logging.{ConsoleLogger, TestLogger}
 import cakesolutions.docker.testkit.matchers.ObservableMatcher._
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
-import monix.execution.Scheduler
+import monix.execution.{Ack, Scheduler}
+import monix.reactive.{Observable, Observer}
+import org.scalacheck.Gen
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object AutoDownSplitBrainDockerTest {
@@ -130,14 +133,14 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     val available = MatchingAutomata[WaitToBeAvailable.type, Boolean](WaitToBeAvailable) {
       case _ => {
         case true =>
-          Stop(Accept)
+          Stop(Accept())
       }
     }
 
     val leader = MatchingAutomata[WaitForLeaderElection.type, Address](WaitForLeaderElection) {
       case _ => {
         case addr: Address if addr.host.contains("left-node-A") =>
-          Stop(Accept)
+          Stop(Accept())
       }
     }
 
@@ -146,36 +149,36 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         case addrs: List[Address @unchecked] if addrs.nonEmpty =>
           Stop(Fail(s"Detected $addrs as unreachable"))
         case StateTimeout =>
-          Stop(Accept)
+          Stop(Accept())
       }
     }
 
     def clusterMembers(nodes: String*) = MatchingAutomata[ClusterMemberCheck.type, AkkaClusterState](ClusterMemberCheck) {
       case _ => {
         case AkkaClusterState(_, members, unreachable) if unreachable.isEmpty && members.filter(_.status == Up).flatMap(_.address.host) == Set(nodes: _*) =>
-          Stop(Accept)
+          Stop(Accept())
       }
     }
 
     def nodeUnreachable(node: String) = MatchingAutomata[WaitForUnreachable.type, List[Address]](WaitForUnreachable) {
       case _ => {
         case addrs: List[Address @unchecked] if addrs.exists(_.host.contains(node)) =>
-          Stop(Accept)
+          Stop(Accept())
       }
     }
 
-    "should auto-seed and form a stable cluster" ignore {
+    "should auto-seed and form a stable cluster" in {
       val superSeed = MatchingAutomata[WaitToJoinCluster.type, LogEvent](WaitToJoinCluster) {
         case _ => {
           case event: LogEvent if clusterJoin("left-node-A")(event) =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
       val welcome = MatchingAutomata[ReceiveWelcomeMessages, LogEvent](ReceiveWelcomeMessages(Set.empty[String])) {
         case ReceiveWelcomeMessages(members) => {
           case data @ LogEvent(_, image, _) if members.size == 2 && welcomeMessage(data) && ! members.contains(image) =>
-            Stop(Accept)
+            Stop(Accept())
           case data @ LogEvent(_, image, _) if welcomeMessage(data) =>
             Goto(ReceiveWelcomeMessages(members + image))
         }
@@ -193,12 +196,12 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         _ = note("node left.A is an available leader")
         _ <- stableCluster.run(clusterSensors("left.A").unreachable).outcome
         _ = note("cluster stable")
-      } yield Accept
+      } yield Accept()
 
-      testSimulation should observe(Accept)
+      testSimulation should observe(Accept())
     }
 
-    "Short GC pause should not split-brain cluster" ignore {
+    "Short GC pause should not split-brain cluster" in {
       val testSimulation = for {
         _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
         _ <- (stableCluster.run(clusterSensors("left.A").unreachable) && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
@@ -212,9 +215,9 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
         _ <- stableCluster.run(clusterSensors("left.A").unreachable).outcome
         _ = note("cluster stabilized with right.A as a member")
-      } yield Accept
+      } yield Accept()
 
-      testSimulation should observe(Accept)
+      testSimulation should observe(Accept())
     }
 
     "network partition causes cluster to split-brain" in {
@@ -235,10 +238,85 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         _ = note("partition into left and right networks")
         _ <- (clusterMembers("left-node-A", "left-node-B").run(clusterSensors("left.A").members) && clusterMembers("right-node-A").run(clusterSensors("right.A").members) && clusterMembers("right-node-B").run(clusterSensors("right.B").members)).outcome
         _ = note("cluster split brains into 3 clusters: left.A & left.B; right.A; right.B")
-      } yield Accept
+      } yield Accept()
 
-      testSimulation should observe(Accept)
+      testSimulation should observe(Accept())
     }
+/*
+    "runWith and traces" in {
+      val jvmGCPause = new Observer[String] {
+        def onNext(command: String): Future[Ack] = command match {
+          case "start" =>
+            rightNodeA.pause()
+            Future.successful(Ack.Continue)
+          case _ =>
+            Future.failed(new RuntimeException(s"$command is unknown!"))
+        }
+
+        def onError(cause: Throwable): Unit = {}
+
+        def onComplete(): Unit = {}
+      }
+      val jvmGCUnpause = new Observer[String] {
+        def onNext(command: String): Future[Ack] = command match {
+          case "end" =>
+            rightNodeA.unpause()
+            Future.successful(Ack.Continue)
+          case _ =>
+            Future.failed(new RuntimeException(s"$command is unknown!"))
+        }
+
+        def onError(cause: Throwable): Unit = {}
+
+        def onComplete(): Unit = {}
+      }
+      val networkPartition = new Observer[String] {
+        def onNext(command: String): Future[Ack] = command match {
+          case "partition" =>
+            compose.network("middle").partition()
+            Future.successful(Ack.Stop)
+          case _ =>
+            Future.failed(new RuntimeException(s"$command is unknown!"))
+        }
+
+        def onError(cause: Throwable): Unit = {}
+
+        def onComplete(): Unit = {}
+      }
+
+      sealed trait Fault
+      final case class JvmGC(pause: Boolean) extends Fault
+      case object NetworkPartition extends Fault
+
+      // FIXME:
+      def next[Input](obs: Seq[Observable[Input]] => Observable[Notify])(implicit inputs: Seq[Observer[Input]], strategy: Gen[Int]): Seq[Observable[Input]] => Observable[Notify] = { trace =>
+        require(trace.length == inputs.length)
+
+        strategy.suchThat(index => 0 <= index && index < trace.length).sample.fold(obs(trace)) { index =>
+          trace(index).take(1).subscribe(inputs(index))
+
+          obs(trace)
+        }
+      }
+
+      def all[Input](path: Observable[Input], obs: Observable[Notify]): Observable[Notify] = ???
+
+      def exists[Input](path: Observable[Input], obs: Observable[Notify]): Observable[Notify] = ???
+
+      type InjectionPoint[Input] = Fault => Observer[Input]
+
+      val a = nodeUnreachable("right-node-A").run(clusterSensors("left.A").unreachable)
+      val b = nodeUnreachable("right-node-A").run(clusterSensors("left.A").unreachable)
+      val c = clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members)
+      val d = stableCluster.run(clusterSensors("left.A").unreachable)
+      val e = d && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)
+      val f = clusterMembers("left-node-A", "left-node-B").run(clusterSensors("left.A").members) && clusterMembers("right-node-A").run(clusterSensors("right.A").members) && clusterMembers("right-node-B").run(clusterSensors("right.B").members)
+
+      // NOTE: `next` modal/temporal operators define potential injection points (i.e. where side effecting actions may occur)
+      (trace: Observable[Fault]) =>
+        (a && c && all(Observable(JvmGC(pause = true)), b && all(Observable(JvmGC(pause = false)), c && d && all(Observable(NetworkPartition), f)))).runWith(trace)
+    }
+    */
   }
 
 }

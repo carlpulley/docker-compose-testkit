@@ -1,13 +1,18 @@
-@( image: String )
+@import cakesolutions.docker.testkit.DockerComposeTestKit._
+@( image: String, dockerfile: DockerFile )
 FROM @image
 
 COPY ./bin/cluster-console /usr/local/bin/cluster-console
 COPY ./bin/jmxsh-R5.jar /usr/local/bin/jmxsh-R5.jar
+COPY ./bin/jajmx-cluster-console /usr/local/bin/jajmx-cluster-console
+COPY ./bin/jajmx.jar /usr/local/bin/jajmx.jar
+COPY ./bin/logging.properties /usr/local/bin/logging.properties
 
 USER root
 
 RUN chmod a+x /usr/local/bin/cluster-console
+RUN chmod a+x /usr/local/bin/jajmx-cluster-console
 
-USER daemon
+@{ dockerfile.user.fold("")("USER " + _) }
 
 ENV JAVA_OPTS -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false

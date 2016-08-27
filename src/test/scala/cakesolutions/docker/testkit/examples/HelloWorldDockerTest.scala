@@ -45,22 +45,22 @@ class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter wi
       val fsm = MatchingAutomata[Unit, LogEvent](()) {
         case _ => {
           case event: LogEvent if event.message.startsWith("Hello from Docker") =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
     }
 
     "unexpected log line at start" in {
       val fsm = MatchingAutomata[Unit, LogEvent]((), 3.seconds) {
         case _ => {
           case StateTimeout =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
     }
 
     "unexpected log line on entering a state" in {
@@ -71,11 +71,11 @@ class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter wi
         }
         case 1 => {
           case StateTimeout =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
     }
 
     "multiple consecutive logging lines" in {
@@ -94,11 +94,11 @@ class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter wi
         }
         case 4 => {
           case event: LogEvent if event.message.startsWith("4. The Docker daemon streamed that output to the Docker client") =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
     }
   }
 

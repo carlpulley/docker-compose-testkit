@@ -1,81 +1,89 @@
 package cakesolutions.docker.testkit.examples
 
+import akka.actor.ActorSystem
 import cakesolutions.docker.testkit.automata.MatchingAutomata
+import cakesolutions.docker.testkit.clients.LibFiuClient
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage}
-import monix.reactive.Observable
+import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import monix.execution.Scheduler
 import org.scalatest._
+
+import scala.concurrent.duration._
+import scala.util.Random
 
 class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfter with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
-  import MatchingAutomata._
+  import LibFiuClient._
+  import MatchingAutomata.{not => negation, _}
   import ObservableMatcher._
 
-  val webHost = "127.0.0.1"
-  val webPort = 8080
+  val initialDelay = 10.seconds
+  val maxWait = 30.seconds
+  val version = "0.0.3-SNAPSHOT"
 
-  // FIXME: can then enable/disable container faults with:
-  //   fiu-ctrl -c "enable name=posix/io/*" `pidof ???`
-  //   fiu-ctrl -c "enable_random name=posix/io/*" `pidof ???`
-  //   fiu-ctrl -c "disable name=posix/io/*" `pidof ???`
+  implicit val testDuration: FiniteDuration = initialDelay + (2 * maxWait)
+  implicit val actorSystem = ActorSystem("LibPreloadFaultInjectionDockerTest")
+  implicit val scheduler = Scheduler(actorSystem.dispatcher)
+
   val yaml = DockerComposeString(
     s"""version: '2'
       |
       |services:
-      |  wordpress:
+      |  akka-node:
       |    template:
       |      resources: /docker/libfiu
-      |      image: wordpress
+      |      image: akka-cluster-node:$version
       |    environment:
-      |      WORDPRESS_DB_HOST: db:3306
-      |      WORDPRESS_DB_PASSWORD: password
-      |    ports:
-      |      - $webPort:80
-      |    networks:
-      |      - public
-      |      - private
-      |    depends_on:
-      |      - db
-      |  db:
-      |    template:
-      |      resources: /docker/libfiu
-      |      image: mariadb
-      |    environment:
-      |      MYSQL_ROOT_PASSWORD: password
+      |      AKKA_HOST: akka-node
+      |      AKKA_PORT: 2552
+      |      CLUSTER_SEED_NODE: akka.tcp://SBRTestCluster@akka-node:2552
       |    networks:
       |      - private
       |
       |networks:
-      |  public:
       |  private:
      """.stripMargin
   )
 
   var compose: DockerCompose = _
-  var wordpress: DockerImage = _
-  var mysql: DockerImage = _
+  var akkaNode: DockerImage = _
 
   before {
     compose = up("fault-injection", yaml)
-    wordpress = compose.service("wordpress").docker.head
-    mysql = compose.service("db").docker.head
+    akkaNode = compose.service("akka-node").docker.head
   }
 
   after {
     compose.down()
   }
 
-  "libfiu instrumented containers" - {
-    // TODO: try limiting the containers memory with --memory?
-    "with no instrumentation" ignore {
-//      val testSimulation: Observable[Notify] = ???
-//
-//      testSimulation should observe(Accept)
-    }
+  def events(image: DockerImage) = TimedObservable.hot(image.events("event=die").publish)
 
-    "with /posix/io/* instrumented" ignore {
-      // TODO:
+  def stable(period: FiniteDuration) = MatchingAutomata[Unit, String]((), period) {
+    case _ => {
+      case event: String =>
+        Stop(Fail(s"Detected container death event: $event"))
+      case StateTimeout =>
+        Stop(Accept())
+    }
+  }
+
+  "libfiu instrumented containers may be fault injected" - {
+    "memory management fault injection" in {
+      val eventStream = events(akkaNode)
+      eventStream.observable.connect()
+
+      val testSimulation = for {
+        _ <- stable(initialDelay + Random.nextInt(maxWait.toSeconds.toInt).seconds).run(eventStream).outcome
+        _ = note("Stable running container")
+        _ = akkaNode.random(posix.mm(), 0.1)
+        _ = note("Random fault injection enabled")
+        _ <- negation(stable(maxWait).run(eventStream)).outcome
+        _ = note("Container died")
+      } yield Accept()
+
+      testSimulation should observe(Accept())
     }
   }
 }

@@ -83,7 +83,7 @@ object DockerComposeTestKit {
 
   final case class DockerEvent(/*time: ZonedDateTime,*/ service: String, action: String, attributes: Map[String, String], `type`: String, id: String)
 
-  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String])
+  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String], user: Option[String])
 
   /////////////////////////
 
@@ -219,6 +219,9 @@ trait DockerComposeTestKit {
                 val imagePattern = "^([^:]+)(:[^:]*)?$".r
                 val template = service(YamlString("template")).asYamlObject.fields
                 val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
+                if (driver.docker.execute("images", "-q", baseImage).!!(log.stderr).trim == "") {
+                  driver.docker.execute("pull", baseImage).!!(log.stderr)
+                }
                 val imagePattern(repository, _) = baseImage
                 val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
                 val dockerDir = getClass.getResource(resources).getPath
@@ -239,7 +242,13 @@ trait DockerComposeTestKit {
                   case Success(JNull) =>
                     Seq.empty[String]
                 }
-                val dockerfile = DockerFile(entrypoint, cmd)
+                val user = (driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim.drop(1).dropRight(1): @unchecked) match {
+                  case "" =>
+                    None
+                  case data =>
+                    Some(data)
+                }
+                val dockerfile = DockerFile(entrypoint, cmd, user)
                 // TODO: optimise wrt service
                 // TODO: ensure copied file is not named Dockerfile
                 for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
@@ -247,7 +256,7 @@ trait DockerComposeTestKit {
                     val typ = resources.split("/").last
                     val fileContents: String = typ match {
                       case "jmx" =>
-                        docker.jmx.template.Dockerfile(baseImage).body
+                        docker.jmx.template.Dockerfile(baseImage, dockerfile).body
                       case "libfiu" =>
                         docker.libfiu.template.Dockerfile(baseImage, dockerfile).body
                     }

@@ -119,11 +119,11 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
         case 1 => {
           case event: LogEvent if accessEvent(event) =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept())
     }
 
     "wordpress hello-world site setup" in {
@@ -176,11 +176,11 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
         }
         case 3 => {
           case event: LogEvent if setupEvents(2)(event) =>
-            Stop(Accept)
+            Stop(Accept())
         }
       }
 
-      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept)
+      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept())
     }
   }
 }

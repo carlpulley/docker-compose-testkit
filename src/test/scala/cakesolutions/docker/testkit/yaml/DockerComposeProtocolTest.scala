@@ -4,10 +4,8 @@ import org.scalatest.FreeSpec
 
 class DockerComposeProtocolTest extends FreeSpec {
 
-  "" - {
-    "" in {
-
-    }
+  "TODO:" ignore {
+    // TODO:
   }
 
 }
