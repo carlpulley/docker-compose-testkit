@@ -20,7 +20,7 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
 
   val initialDelay = 10.seconds
   val maxWait = 30.seconds
-  val version = "0.0.3-SNAPSHOT"
+  val version = "0.0.4-SNAPSHOT"
 
   implicit val testDuration: FiniteDuration = initialDelay + (2 * maxWait)
   implicit val actorSystem = ActorSystem("LibPreloadFaultInjectionDockerTest")
