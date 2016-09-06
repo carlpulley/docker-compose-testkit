@@ -236,19 +236,36 @@
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
-    </li><li name="cakesolutions.docker.testkit.DockerImage#exec" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="exec(command:String*):rx.lang.scala.Observable[String]"></a>
-      <a id="exec(String*):Observable[String]"></a>
+    </li><li name="cakesolutions.docker.testkit.DockerImage#events" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="events(filters:String*)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]"></a>
+      <a id="events(String*)(Scheduler):Observable[String]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">exec</span><span class="params">(<span name="command">command: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[<span class="extype" name="scala.Predef.String">String</span>]</span>
+        <span class="name">events</span><span class="params">(<span name="filters">filters: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="params">(<span class="implicit">implicit </span><span name="scheduler">scheduler: <span class="extype" name="monix.execution.Scheduler">Scheduler</span></span>)</span><span class="result">: <span class="extype" name="monix.reactive.Observable">Observable</span>[<span class="extype" name="scala.Predef.String">String</span>]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@exec(command:String*):rx.lang.scala.Observable[String]" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@events(filters:String*)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.DockerImage#exec" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="exec(command:String*)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]"></a>
+      <a id="exec(String*)(Scheduler):Observable[String]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exec</span><span class="params">(<span name="command">command: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="params">(<span class="implicit">implicit </span><span name="scheduler">scheduler: <span class="extype" name="monix.execution.Scheduler">Scheduler</span></span>)</span><span class="result">: <span class="extype" name="monix.reactive.Observable">Observable</span>[<span class="extype" name="scala.Predef.String">String</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@exec(command:String*)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -395,19 +412,36 @@
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="cakesolutions.docker.testkit.DockerImage#log" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="log:cakesolutions.docker.testkit.logging.Logger"></a>
+      <a id="log:Logger"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">implicit </span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">log</span><span class="result">: <a href="logging/Logger.html" class="extype" name="cakesolutions.docker.testkit.logging.Logger">Logger</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@log:cakesolutions.docker.testkit.logging.Logger" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
     </li><li name="cakesolutions.docker.testkit.DockerImage#logging" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="logging():rx.lang.scala.Observable[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]"></a>
-      <a id="logging():Observable[LogEvent]"></a>
+      <a id="logging(since:java.time.ZonedDateTime)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]"></a>
+      <a id="logging(ZonedDateTime)(Scheduler):Observable[LogEvent]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">logging</span><span class="params">()</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>]</span>
+        <span class="name">logging</span><span class="params">(<span name="since">since: <span class="extype" name="java.time.ZonedDateTime">ZonedDateTime</span> = <span class="symbol">null</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="scheduler">scheduler: <span class="extype" name="monix.execution.Scheduler">Scheduler</span></span>)</span><span class="result">: <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="DockerComposeTestKit$$LogEvent.html" class="extype" name="cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent">LogEvent</a>]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@logging():rx.lang.scala.Observable[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@logging(since:java.time.ZonedDateTime)(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent]" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -515,18 +549,18 @@
     </span>
       
     </li><li name="cakesolutions.docker.testkit.DockerImage#stats" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="stats(command:String):rx.lang.scala.Observable[String]"></a>
-      <a id="stats(String):Observable[String]"></a>
+      <a id="stats()(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]"></a>
+      <a id="stats()(Scheduler):Observable[String]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">stats</span><span class="params">(<span name="command">command: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result">: <span class="extype" name="rx.lang.scala.Observable">Observable</span>[<span class="extype" name="scala.Predef.String">String</span>]</span>
+        <span class="name">stats</span><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="scheduler">scheduler: <span class="extype" name="monix.execution.Scheduler">Scheduler</span></span>)</span><span class="result">: <span class="extype" name="monix.reactive.Observable">Observable</span>[<span class="extype" name="scala.Predef.String">String</span>]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@stats(command:String):rx.lang.scala.Observable[String]" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.DockerImage@stats()(implicitscheduler:monix.execution.Scheduler):monix.reactive.Observable[String]" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
