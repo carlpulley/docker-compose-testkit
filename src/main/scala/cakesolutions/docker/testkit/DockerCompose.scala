@@ -57,7 +57,7 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
       driver.docker.execute("logs", image.id) #> new File(s"target/$projectId/$projectName/$name-${image.id}.log") !! log.devNull
     }
     if (imagesToDelete.nonEmpty) {
-      log.info(s"Deleting temporary images: $imagesToDelete")
+      log.debug(s"Deleting temporary images: $imagesToDelete")
       for (image <- imagesToDelete) {
         driver.docker.execute("rmi", "-f", image).!!(log.stderr)
       }
