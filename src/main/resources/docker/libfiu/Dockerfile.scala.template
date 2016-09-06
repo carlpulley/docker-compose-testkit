@@ -1,6 +1,6 @@
 @import cakesolutions.docker.testkit.DockerComposeTestKit._
-@( image: String, dockerfile: DockerFile )
-FROM @image
+@( dockerfile: DockerFile )
+FROM @{ dockerfile.from }
 
 USER root
 
@@ -9,7 +9,6 @@ USER root
 RUN apt-get update && apt-get install -y build-essential git-core python
 
 RUN cd /tmp && git clone https://github.com/albertito/libfiu.git
-
 RUN cd /tmp/libfiu && make && make install && ldconfig
 
 @{ dockerfile.user.fold("")("USER " + _) }

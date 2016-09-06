@@ -8,6 +8,7 @@ import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.logging.TestLogger
 import cakesolutions.docker.testkit.matchers.ObservableMatcher._
 import cakesolutions.docker.testkit.network.ImpairmentSpec.{Delay, Loss}
+import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
 import monix.execution.Scheduler
 import org.scalatest._
@@ -46,6 +47,7 @@ object LossyNetworkDockerTest {
 }
 
 class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with Eventually with DockerComposeTestKit with TestLogger {
+  import DockerComposeProtocol.Linux._
   import DockerComposeTestKit._
   import LossyNetworkDockerTest._
   import MatchingAutomata._
@@ -60,19 +62,21 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
       |
       |services:
       |  server:
-      |    image: ubuntu:trusty
+      |    template:
+      |      resources:
+      |        - /network/default/linux
+      |      image: ubuntu:trusty
       |    command: /bin/sleep 300000
       |    networks:
       |      - common
-      |    cap_add:
-      |      - NET_ADMIN
       |  client:
-      |    image: ubuntu:trusty
+      |    template:
+      |      resources:
+      |        - /network/default/linux
+      |      image: ubuntu:trusty
       |    command: sh -c "ping server"
       |    networks:
       |      - common
-      |    cap_add:
-      |      - NET_ADMIN
       |
       |networks:
       |  common:
@@ -181,11 +185,11 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     val testSimulation = for {
       _ <- warmup.run(pingSource).outcome
       _ <- normal.run(pingSource).outcome
-      _ = compose.network("common").qdisc(Delay())
+      _ = compose.network("common").impair(Delay())
       _ <- delayed.run(pingSource).outcome
-      _ = compose.network("common").qdisc(Loss("random 50%"))
+      _ = compose.network("common").impair(Loss("random 50%"))
       _ <- lossy.run(pingSource).outcome
-      _ = compose.network("common").reset()
+      _ = compose.network("common").impair()
       _ <- normal.run(pingSource).outcome
     } yield Accept()
 

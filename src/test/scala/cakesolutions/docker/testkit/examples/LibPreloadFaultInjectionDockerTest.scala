@@ -32,7 +32,8 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       |services:
       |  akka-node:
       |    template:
-      |      resources: /docker/libfiu
+      |      resources:
+      |        - /libfiu
       |      image: akka-cluster-node:$version
       |    environment:
       |      AKKA_HOST: akka-node

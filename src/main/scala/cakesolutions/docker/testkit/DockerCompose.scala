@@ -18,7 +18,7 @@ import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject)(implicit driver: Driver, log: Logger) {
+final class DockerCompose private[testkit] (projectName: String, projectId: ProjectId, yamlFile: String, config: YamlObject, imagesToDelete: Seq[String] = Seq.empty)(implicit driver: Driver, log: Logger) {
   require(Set("services", "networks", "volumes").subsetOf(config.fields.keySet.map(_.asInstanceOf[YamlString].value)))
 
   val pool = Scheduler.io(projectId.toString)
@@ -47,7 +47,7 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
   lazy val docker: Map[String, DockerImage] =
     Map(driver.docker.execute("ps", "-qa").!!(log.devNull).split("\n").map(id => id -> new DockerImage(projectId, id, pool)(driver, log)): _*)
 
-  // TODO: handle paused containers; removing built images
+  // TODO: handle paused containers
   def down(): Unit = {
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "logs", "--no-color") #> new File(s"target/$projectId/$projectName/docker-compose.log") !! log.devNull
     for {
@@ -55,6 +55,9 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
       image <- service(name).docker
     } {
       driver.docker.execute("logs", image.id) #> new File(s"target/$projectId/$projectName/$name-${image.id}.log") !! log.devNull
+    }
+    for (image <- imagesToDelete) {
+      driver.docker.execute("rmi", "-f", image).!!(log.stderr)
     }
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "down").!!(log.stderr)
     log.info(s"Down $projectName [$projectId]")

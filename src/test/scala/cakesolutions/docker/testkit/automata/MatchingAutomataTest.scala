@@ -9,17 +9,18 @@ import org.scalatest.{FreeSpec, Matchers}
 
 import scala.concurrent.duration._
 
+// TODO: speedup or distinguish long running tests
 class MatchingAutomataTest extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   import MatchingAutomata.{not => negation, _}
   import ObservableMatcher._
 
-  implicit val testDuration: FiniteDuration = 10.seconds
+  implicit val testDuration: FiniteDuration = 10.milliseconds
   implicit val scheduler = Scheduler.io("MatchingAutomataTest")
 
   // TODO: how do logical operators behave when subscriptions are cancelled?
 
-  val delayGen = Gen.oneOf(1.second, 2.seconds, 3.seconds)
+  val delayGen = Gen.oneOf(1.millisecond, 2.milliseconds, 3.milliseconds)
   val left = Observable(Accept(), Fail("left-1"), Accept(), Fail("left-2"), Accept(), Fail("left-3"), Accept(), Fail("left-4"))
   val middle = Observable(Accept(), Accept(), Fail("middle-1"), Fail("middle-2"), Accept(), Accept(), Fail("middle-3"), Fail("middle-4"))
   val right = Observable(Accept(), Accept(), Accept(), Accept(), Fail("right-1"), Fail("right-2"), Fail("right-3"), Fail("right-4"))

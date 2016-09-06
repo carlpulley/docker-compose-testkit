@@ -33,7 +33,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.7"
 
   object monix {
-    private val version = "2.0-RC13"
+    private val version = "2.0.0"
 
     val core = "io.monix" %% "monix" % version
     val reactive = "io.monix" %% "monix-reactive" % version

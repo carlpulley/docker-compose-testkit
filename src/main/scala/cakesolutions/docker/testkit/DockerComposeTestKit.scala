@@ -1,21 +1,21 @@
 package cakesolutions.docker.testkit
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{StandardCopyOption, Files, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.ZonedDateTime
 import java.util.{TimeZone, UUID}
 
 import cakesolutions.docker.testkit.logging.Logger
 import net.jcazevedo.moultingyaml._
 import org.joda.time.{DateTime, DateTimeZone}
-import org.json4s.JsonAST.{JString, JArray, JNull}
+import org.json4s.JsonAST.{JArray, JNull, JString}
 import org.json4s.native.JsonParser
 
 import scala.collection.JavaConversions._
 import scala.compat.java8.StreamConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
-import scala.util.{Success, Failure, Try}
+import scala.util.{Success, Try}
 
 object DockerComposeTestKit {
 
@@ -83,7 +83,9 @@ object DockerComposeTestKit {
 
   final case class DockerEvent(/*time: ZonedDateTime,*/ service: String, action: String, attributes: Map[String, String], `type`: String, id: String)
 
-  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String], user: Option[String])
+  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String], user: Option[String], from: String, rawContents: Seq[String])
+
+  final case class ServiceBuilder(baseDockerfile: DockerFile, properties: Map[YamlValue, YamlValue] = Map.empty)
 
   /////////////////////////
 
@@ -183,12 +185,15 @@ trait DockerComposeTestKit {
                     case YamlObject(template) =>
                       assert(template.containsKey(YamlString("resources")), "Docker compose YAML templates must contain a `resources` key")
                       assert(template.containsKey(YamlString("image")), "Docker compose YAML templates must contain an `image` key")
-                      template.values.foreach { value =>
-                        assert(value.isInstanceOf[YamlString], "All template values should be strings")
+                      // FIXME: following needs fixing!!
+                      assert(template(YamlString("image")).isInstanceOf[YamlString], "`image` key should be a string")
+                      assert(template(YamlString("resources")).isInstanceOf[YamlArray], "`resources` key should be an array")
+                      template(YamlString("resources")).asInstanceOf[YamlArray].elements.foreach { value =>
+                        assert(value.isInstanceOf[YamlString], "All `resources` template values should be strings")
+                        val resources = value.asInstanceOf[YamlString].value
+                        assert(resources.startsWith("/"), "All `resources` template values should be absolute paths")
+                        assert(Option(getClass.getResource(s"/docker$resources")).isDefined, "`resources` values should point to a path available on the classpath under a `docker` directory")
                       }
-                      val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
-                      assert(resources.startsWith("/"), "`resources` should be an absolute path")
-                      assert(Option(getClass.getResource(resources)).isDefined, "`resources` should point to a path available on the classpath")
                       assert(template(YamlString("image")).asInstanceOf[YamlString].value.matches("^([^:]+)(:[^:]*)?$"), "`image` should match the regular expression `^([^:]+)(:[^:]*)?$`")
                     case _ =>
                       assert(assertion = false, "Docker compose YAML `template` key should be an object")
@@ -203,94 +208,69 @@ trait DockerComposeTestKit {
       case _ =>
         assert(assertion = false, "Docker compose YAML should be an object")
     }
+    val templatedServicesWithImageResources = parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+      case (_, service) =>
+        service.asYamlObject.fields.containsKey(YamlString("template"))
+    }.map { kv =>
+      kv.asInstanceOf[(YamlString, YamlObject)] match {
+        case (YamlString(name), YamlObject(service)) =>
+          val imagePattern = "^([^:]+)(:[^:]*)?$".r
+          val template = service(YamlString("template")).asYamlObject.fields
+          val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
+          if (driver.docker.execute("images", "-q", baseImage).!!(log.stderr).trim == "") {
+            driver.docker.execute("pull", baseImage).!!(log.stderr)
+          }
+          val imagePattern(repository, _) = baseImage
+          // TODO: implement some real error handling here!
+          val resources = (template(YamlString("resources")): @unchecked) match {
+            case YamlArray(elements) =>
+              elements.map(_.asInstanceOf[YamlString].value)
+          }
+
+          val entryPoint = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr))): @unchecked) match {
+            case Success(JArray(list)) =>
+              list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+            case Success(JString(data)) =>
+              data.split("\\s+").toSeq
+            case Success(JNull) =>
+              Seq.empty[String]
+          }
+          val cmd = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr))): @unchecked) match {
+            case Success(JArray(list)) =>
+              list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+            case Success(JString(data)) =>
+              data.split("\\s+").toSeq
+            case Success(JNull) =>
+              Seq.empty[String]
+          }
+          val user = (driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim.drop(1).dropRight(1): @unchecked) match {
+            case "" =>
+              None
+            case data =>
+              Some(data)
+          }
+
+          val baseDockerfile = DockerFile(entryPoint, cmd, user, from = baseImage, rawContents = Seq(s"FROM $baseImage"))
+          assert(resources.nonEmpty)
+          assert(resources.length == resources.distinct.length)
+          assert(resources.forall(_.head == '/'))
+          val expandedBuild = resources.foldLeft(ServiceBuilder(baseDockerfile))(evaluateService(projectDir, name, log))
+
+          Files.write(Paths.get(s"$projectDir/$name/docker/Dockerfile"), expandedBuild.baseDockerfile.rawContents.mkString("", "\n", "\n").getBytes)
+
+          (s"$repository:$name.$projectId", Map(YamlString(name) -> YamlObject(service - YamlString("template") + (YamlString("image") -> YamlString(s"$repository:$name.$projectId")) + (YamlString("build") -> YamlObject(YamlString("context") -> YamlString(s"./$name/docker"))) ++ expandedBuild.properties)))
+      }
+    }
+    val imagesToDelete = templatedServicesWithImageResources.keys.toSeq
+    val templatedServices = templatedServicesWithImageResources.flatMap(_._2)
+    val nonTemplatedServices = parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+      case (_, service) =>
+        ! service.asYamlObject.fields.containsKey(YamlString("template"))
+    }
     val transformedYaml = YamlObject(
       parsedYaml.get.asYamlObject.fields.updated(
         YamlString("services"),
-        YamlObject(
-          parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
-            case (_, service) =>
-              ! service.asYamlObject.fields.containsKey(YamlString("template"))
-          } ++
-            parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
-              case (_, service) =>
-                service.asYamlObject.fields.containsKey(YamlString("template"))
-            }.map { kv => kv.asInstanceOf[(YamlString, YamlObject)] match {
-              case (YamlString(name), YamlObject(service)) =>
-                val imagePattern = "^([^:]+)(:[^:]*)?$".r
-                val template = service(YamlString("template")).asYamlObject.fields
-                val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
-                if (driver.docker.execute("images", "-q", baseImage).!!(log.stderr).trim == "") {
-                  driver.docker.execute("pull", baseImage).!!(log.stderr)
-                }
-                val imagePattern(repository, _) = baseImage
-                val resources = template(YamlString("resources")).asInstanceOf[YamlString].value
-                val dockerDir = getClass.getResource(resources).getPath
-                // TODO: implement some real error handling here!
-                val entrypoint = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr))): @unchecked) match {
-                  case Success(JArray(list)) =>
-                    list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
-                  case Success(JString(data)) =>
-                    data.split("\\s+").toSeq
-                  case Success(JNull) =>
-                    Seq.empty[String]
-                }
-                val cmd = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr))): @unchecked) match {
-                  case Success(JArray(list)) =>
-                    list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
-                  case Success(JString(data)) =>
-                    data.split("\\s+").toSeq
-                  case Success(JNull) =>
-                    Seq.empty[String]
-                }
-                val user = (driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim.drop(1).dropRight(1): @unchecked) match {
-                  case "" =>
-                    None
-                  case data =>
-                    Some(data)
-                }
-                val dockerfile = DockerFile(entrypoint, cmd, user)
-                // TODO: optimise wrt service
-                // TODO: ensure copied file is not named Dockerfile
-                for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
-                  if (path.endsWith("Dockerfile.scala.template")) {
-                    val typ = resources.split("/").last
-                    val fileContents: String = typ match {
-                      case "jmx" =>
-                        docker.jmx.template.Dockerfile(baseImage, dockerfile).body
-                      case "libfiu" =>
-                        docker.libfiu.template.Dockerfile(baseImage, dockerfile).body
-                    }
-                    val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$name/docker").dropRight(".scala.template".length))
-                    val targetDir = new File(targetFile.getParent.toString)
-
-                    if (!targetDir.exists()) {
-                      targetDir.mkdirs()
-                    }
-                    Files.write(targetFile, fileContents.getBytes)
-                  } else {
-                    val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$name/docker"))
-                    val targetDir = new File(targetFile.getParent.toString)
-
-                    if (!targetDir.exists()) {
-                      targetDir.mkdirs()
-                    }
-                    if (!new File(targetFile.toString).exists()) {
-                      Files.copy(path, targetFile, StandardCopyOption.COPY_ATTRIBUTES)
-                    }
-                  }
-                }
-
-                // TODO: add down hook to remove image
-                YamlString(name) ->
-                  YamlObject(
-                    service
-                      - YamlString("template")
-                      + (YamlString("image") -> YamlString(s"$repository:$name.$projectId"))
-                      + (YamlString("build") -> YamlObject(YamlString("context") -> YamlString(s"./$name/docker")))
-                  )
-            }
-            }
-        )
+        YamlObject(nonTemplatedServices ++ templatedServices)
       )
     )
 
@@ -306,6 +286,85 @@ trait DockerComposeTestKit {
 
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "--build", "--remove-orphans", "-d").!!(log.stderr)
 
-    new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get)(driver, log)
+    println(s"DEBUGGY: $imagesToDelete")
+    new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get, imagesToDelete)(driver, log)
+  }
+
+  private def evaluateService(projectDir: String, serviceName: String, log: Logger)(builder: ServiceBuilder, resource: String): ServiceBuilder = {
+    val dockerDir = getClass.getResource(s"/docker$resource").getPath
+    val (newDockerfile, properties) = copyTemplateResources(projectDir, serviceName, dockerDir, resource, builder.baseDockerfile, log)
+
+    ServiceBuilder(newDockerfile, builder.properties ++ properties)
+  }
+
+  private def copyTemplateResources(projectDir: String, serviceName: String, dockerDir: String, resource: String, baseDockerfile: DockerFile, log: Logger): (DockerFile, Map[YamlValue, YamlValue]) = {
+    var result = (baseDockerfile, Map.empty[YamlValue, YamlValue])
+    for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
+      if (path == Paths.get(s"$dockerDir/Dockerfile")) {
+        // Intentionally ignore Dockerfile's
+        log.warn(s"Ignoring file $path - Dockerfile must be a template (i.e. end in extension .scala.template)")
+      } else if (path == Paths.get(s"$dockerDir/Service.scala.template")) {
+        result = (result._1, evaluateService(resource))
+      } else if (path == Paths.get(s"$dockerDir/Dockerfile.scala.template")) {
+        val newDockerfile = evaluateDockerfile(projectDir, serviceName, dockerDir, resource, baseDockerfile, path)
+        result = (newDockerfile, result._2)
+      } else {
+        val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$serviceName/docker"))
+        val targetDir = new File(targetFile.getParent.toString)
+        if (!targetDir.exists()) {
+          targetDir.mkdirs()
+        }
+        if (!new File(targetFile.toString).exists()) {
+          Files.copy(path, targetFile, StandardCopyOption.COPY_ATTRIBUTES)
+        }
+      }
+    }
+    if (new File(s"$projectDir/$serviceName/docker").exists()) {
+      Files.write(Paths.get(s"$projectDir/$serviceName/docker/.dockerignore"), "template/*\n".getBytes)
+    }
+    result
+  }
+
+  private def evaluateDockerfile(projectDir: String, serviceName: String, dockerDir: String, resource: String, oldDockerfile: DockerFile, path: Path): DockerFile = {
+    // FIXME: to be correct, the following needs to use reflection!
+    val contents: Array[String] = (resource match {
+      case "/jmx/akka" =>
+        docker.jmx.akka.template.Dockerfile(oldDockerfile).body
+      case "/libfiu" =>
+        docker.libfiu.template.Dockerfile(oldDockerfile).body
+      case "/network/default/linux" =>
+        docker.network.default.linux.template.Dockerfile(oldDockerfile).body
+    }).split("\n")
+
+    val Entrypoint = """^ENTRYPOINT\s+(.+)$""".r
+    val Cmd = """^CMD\s+(.+)$""".r
+    val User = """^USER\s+(.+)$""".r
+    val entryPoint = {
+      val result = contents.collect { case Entrypoint(value) => value.trim }.toSeq
+      if (result.isEmpty) {
+        oldDockerfile.entrypoint
+      } else {
+        result
+      }
+    }
+    val cmd = {
+      val result = contents.collect { case Cmd(value) => value.trim }.toSeq
+      if (result.isEmpty) {
+        oldDockerfile.cmd
+      } else {
+        result
+      }
+    }
+    val user = contents.collect { case User(value) => value.trim }.lastOption.orElse(oldDockerfile.user)
+
+    DockerFile(entryPoint, cmd, user, oldDockerfile.from, oldDockerfile.rawContents ++ contents.filterNot(_.matches("^FROM\\s+.*$")))
+  }
+
+  private def evaluateService(resource: String): Map[YamlValue, YamlValue] = {
+    // FIXME: to be correct, the following needs to use reflection!
+    resource match {
+      case "/network/default/linux" =>
+        docker.network.default.linux.template.Service().body.parseYaml.asYamlObject.fields
+    }
   }
 }

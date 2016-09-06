@@ -13,9 +13,9 @@ import scala.concurrent.duration._
 
 object ObservableMatcher {
 
-  private case class TestFailed(n: Int, action: Notify) extends Exception
-  private case class ObservableError(n: Int, cause: Throwable) extends Exception
-  private case class ObservableClosed(n: Int) extends Exception
+  private final case class TestFailed(n: Int, action: Notify) extends Exception
+  private final case class ObservableError(n: Int, cause: Throwable) extends Exception
+  private final case class ObservableClosed(n: Int) extends Exception
 
   def observe(actions: Notify*)(implicit scheduler: Scheduler, timeout: FiniteDuration) = new Matcher[Observable[Notify]] {
     def apply(obs: Observable[Notify]) = {

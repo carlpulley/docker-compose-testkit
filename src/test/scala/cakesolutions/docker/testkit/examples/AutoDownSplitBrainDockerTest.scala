@@ -9,6 +9,8 @@ import cakesolutions.docker.testkit.clients.AkkaClusterClient
 import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
 import cakesolutions.docker.testkit.logging.{ConsoleLogger, TestLogger}
 import cakesolutions.docker.testkit.matchers.ObservableMatcher._
+import cakesolutions.docker.testkit.network.ImpairmentSpec.Loss
+import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
 import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}
@@ -70,6 +72,7 @@ object AutoDownSplitBrainDockerTest {
 
 class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
   import AutoDownSplitBrainDockerTest._
+  import DockerComposeProtocol.Linux._
   import DockerComposeTestKit._
   import MatchingAutomata._
 
@@ -81,7 +84,10 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     name -> DockerComposeYaml(
       Map(
         "template" -> Map(
-          "resources" -> "/docker/jmx",
+          "resources" -> List(
+            "/jmx/akka",
+            "/network/default/linux"
+          ),
           "image" -> s"akka-cluster-node:$version"
         ),
         "environment" -> Map(
@@ -234,7 +240,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
         _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
         _ <- (stableCluster.run(clusterSensors("left.A").unreachable) && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
         _ = note("cluster stable and left.A is an available leader")
-        _ = compose.network("middle").partition()
+        _ = compose.network("middle").impair(Loss("100%"))
         _ = note("partition into left and right networks")
         _ <- (clusterMembers("left-node-A", "left-node-B").run(clusterSensors("left.A").members) && clusterMembers("right-node-A").run(clusterSensors("right.A").members) && clusterMembers("right-node-B").run(clusterSensors("right.B").members)).outcome
         _ = note("cluster split brains into 3 clusters: left.A & left.B; right.A; right.B")
