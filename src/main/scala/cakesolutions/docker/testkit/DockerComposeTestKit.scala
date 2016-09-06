@@ -227,28 +227,48 @@ trait DockerComposeTestKit {
               elements.map(_.asInstanceOf[YamlString].value)
           }
 
-          val entryPoint = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr))): @unchecked) match {
-            case Success(JArray(list)) =>
-              list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
-            case Success(JString(data)) =>
-              data.split("\\s+").toSeq
-            case Success(JNull) =>
+          val rawEntryPoint = driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr).trim
+          val entryPoint =
+            if (rawEntryPoint == "null") {
               Seq.empty[String]
-          }
-          val cmd = (Try(JsonParser.parse(driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr))): @unchecked) match {
-            case Success(JArray(list)) =>
-              list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
-            case Success(JString(data)) =>
-              data.split("\\s+").toSeq
-            case Success(JNull) =>
+            } else {
+              (Try(JsonParser.parse(rawEntryPoint)): @unchecked) match {
+                case Success(JArray(list)) =>
+                  list.map(json => (json: @unchecked) match {
+                    case JString(data) => data
+                  }).toSeq
+                case Success(JString(data)) =>
+                  data.split("\\s+").toSeq
+                case Success(JNull) =>
+                  Seq.empty[String]
+              }
+            }
+          val rawCmd = driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr).trim
+          val cmd =
+            if (rawCmd == "null") {
               Seq.empty[String]
-          }
-          val user = (driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim.drop(1).dropRight(1): @unchecked) match {
-            case "" =>
+            } else {
+              (Try(JsonParser.parse(rawCmd)): @unchecked) match {
+                case Success(JArray(list)) =>
+                  list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+                case Success(JString(data)) =>
+                  data.split("\\s+").toSeq
+                case Success(JNull) =>
+                  Seq.empty[String]
+              }
+            }
+          val rawUser = driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim
+          val user =
+            if (rawUser == "null") {
               None
-            case data =>
-              Some(data)
-          }
+            } else {
+              (rawUser.drop(1).dropRight(1): @unchecked) match {
+                case "" =>
+                  None
+                case data =>
+                  Some(data)
+              }
+            }
 
           val baseDockerfile = DockerFile(entryPoint, cmd, user, from = baseImage, rawContents = Seq(s"FROM $baseImage"))
           assert(resources.nonEmpty)
@@ -286,7 +306,6 @@ trait DockerComposeTestKit {
 
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "--build", "--remove-orphans", "-d").!!(log.stderr)
 
-    println(s"DEBUGGY: $imagesToDelete")
     new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get, imagesToDelete)(driver, log)
   }
 
