@@ -170,6 +170,8 @@ trait DockerComposeTestKit {
       assert(Files.deleteIfExists(path))
     }
 
+    log.info(driver.docker.execute("images").!!(log.stderr))
+
     val parsedYaml = Try(yaml.contents.parseYaml)
     assert(parsedYaml.isSuccess, s"Failed to parse docker compose YAML - reason: $parsedYaml")
     parsedYaml.foreach {
