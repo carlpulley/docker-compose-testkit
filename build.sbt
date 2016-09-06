@@ -4,7 +4,7 @@ import Dependencies._
 
 name := "docker-compose-testkit"
 
-val buildVersion = "0.0.3-SNAPSHOT"
+val buildVersion = "0.0.4-SNAPSHOT"
 
 lazy val root = (project in file(".")).
   enablePlugins(SbtTwirl).

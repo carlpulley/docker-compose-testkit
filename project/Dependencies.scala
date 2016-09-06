@@ -21,6 +21,7 @@ object Dependencies {
     val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
   }
 
+  val config = "com.typesafe" % "config" % "1.3.0"
   val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0-RC3"
 
   object json4s {
