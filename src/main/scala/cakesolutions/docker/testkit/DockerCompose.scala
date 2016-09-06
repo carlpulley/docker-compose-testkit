@@ -56,8 +56,11 @@ final class DockerCompose private[testkit] (projectName: String, projectId: Proj
     } {
       driver.docker.execute("logs", image.id) #> new File(s"target/$projectId/$projectName/$name-${image.id}.log") !! log.devNull
     }
-    for (image <- imagesToDelete) {
-      driver.docker.execute("rmi", "-f", image).!!(log.stderr)
+    if (imagesToDelete.nonEmpty) {
+      log.info(s"Deleting temporary images: $imagesToDelete")
+      for (image <- imagesToDelete) {
+        driver.docker.execute("rmi", "-f", image).!!(log.stderr)
+      }
     }
     driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "down").!!(log.stderr)
     log.info(s"Down $projectName [$projectId]")
