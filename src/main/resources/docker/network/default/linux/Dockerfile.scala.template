@@ -1,0 +1,9 @@
+@import cakesolutions.docker.testkit.DockerComposeTestKit._
+@( dockerfile: DockerFile )
+FROM @{ dockerfile.from }
+
+USER root
+
+RUN apt-get update && apt-get install -y iptables
+
+@{ dockerfile.user.fold("")("USER " + _) }

@@ -1,102 +1,123 @@
-// Copyright 2016 Carl Pulley
-
 package cakesolutions.docker.testkit
 
-import java.io.File.createTempFile
-import java.io.PrintWriter
-import java.time.format.DateTimeFormatter
-import java.time.{ZoneId, ZonedDateTime}
-import java.util.concurrent.{ExecutorService, Executors}
+import java.io.{File, PrintWriter}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.time.ZonedDateTime
+import java.util.{TimeZone, UUID}
 
-import org.json4s._
-import org.json4s.native.JsonMethods._
-import org.scalatest.FreeSpecLike
-import org.scalatest.concurrent.PatienceConfiguration
-import org.scalatest.exceptions.TestFailedException
-import org.scalatest.matchers.{MatchResult, Matcher}
-import org.scalatest.time.{Seconds, Span}
-import rx.lang.scala.Notification.{OnCompleted, OnError, OnNext}
-import rx.lang.scala.Observable
+import cakesolutions.docker.testkit.logging.Logger
+import net.jcazevedo.moultingyaml._
+import org.joda.time.{DateTime, DateTimeZone}
+import org.json4s.JsonAST.{JArray, JNull, JString}
+import org.json4s.native.JsonParser
 
-import scala.concurrent._
-import scala.concurrent.duration._
+import scala.collection.JavaConversions._
+import scala.compat.java8.StreamConverters._
+import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
-
-// TODO: add in commands to inspect containers and to bimap between container and image IDs?
-// TODO: upgrade logging to use contextual logging?
-// TODO: write tests with 100% coverage
-// TODO: abstract out command line arguments (and so promote re-targetting drivers to other implementations)
-// TODO: add in configuration to allow logs to be printed out during a test run
+import scala.util.{Success, Try}
 
 object DockerComposeTestKit {
-  /**
-   * TODO:
-   */
-  final case class LogEvent(time: ZonedDateTime, image: Option[String], message: String)
-  // {"service": "example", "time": "2016-06-03T10:33:43.105938", "action": "create", "attributes": {"image": "hello-world", "name": "t_example_1"}, "type": "container", "id": "5681ca7bf9741e1798c27f73f2c1c61b0870b493e52fae02e2a899d0ab518e7e"}
+
+  sealed trait DockerComposeDefinition {
+    def contents: String
+  }
+  final case class DockerComposeString(contents: String) extends DockerComposeDefinition
+  final case class DockerComposeYaml(yaml: Map[Any, Any]) extends DockerComposeDefinition {
+    lazy val contents = toYamlValue(yaml).prettyPrint
+
+    private def toYamlValue(a: Any): YamlValue = a match {
+      case y: DockerComposeYaml =>
+        toYamlValue(y.yaml)
+      case n: Int =>
+        YamlNumber(n)
+      case n: Long =>
+        YamlNumber(n)
+      case n: Double =>
+        YamlNumber(n)
+      case n: Float =>
+        YamlNumber(n)
+      case n: Byte =>
+        YamlNumber(n)
+      case n: Short =>
+        YamlNumber(n)
+      case n: BigInt =>
+        YamlNumber(n)
+      case s: String =>
+        YamlString(s)
+      case d: FiniteDuration =>
+        YamlString(d.toString)
+      case d: ZonedDateTime =>
+        YamlDate(
+          new DateTime(
+            d.toInstant.toEpochMilli,
+            DateTimeZone.forTimeZone(TimeZone.getTimeZone(d.getZone))
+          )
+        )
+      case b: Boolean =>
+        YamlBoolean(b)
+      case s: Set[_] =>
+        YamlSet(s.map(toYamlValue).toSeq: _*)
+      case l: List[_] =>
+        YamlArray(l.map(toYamlValue): _*)
+      case m: Map[_, _] =>
+        YamlObject(m.map { case (k, v) => (toYamlValue(k), toYamlValue(v)) }.toSeq: _*)
+      case _: Any =>
+        YamlString(a.toString)
+    }
+  }
+  final case class DockerComposeFile(filename: String) extends DockerComposeDefinition {
+    lazy val contents = new String(Files.readAllBytes(Paths.get(filename)))
+  }
+
+  sealed trait State
+  case object Running extends State
+  case object Paused extends State
+  case object Stopped extends State
+
+  final case class ImageState(state: State, isRunning: Boolean, isPaused: Boolean, isRestarting: Boolean, isOOMKilled: Boolean, isDead: Boolean, exitCode: Option[Int], error: Option[String], startedAt: ZonedDateTime, finishedAt: ZonedDateTime)
+
+  /////////////////////////
+
+  final case class LogEvent(time: ZonedDateTime, image: String, message: String)
+
   final case class DockerEvent(/*time: ZonedDateTime,*/ service: String, action: String, attributes: Map[String, String], `type`: String, id: String)
 
-  /**
-   * TODO:
-   */
-  sealed trait NetworkAction
-  final case class ConnectNetwork(network: String, container: String) extends NetworkAction
-  final case class DisconnectNetwork(network: String, container: String) extends NetworkAction
-  final case class RemoveNetwork(network: String, networks: String*) extends NetworkAction
+  final case class DockerFile(entrypoint: Seq[String], cmd: Seq[String], user: Option[String], from: String, rawContents: Seq[String])
 
-  /**
-   * TODO:
-   */
-  sealed trait VolumeAction
-  final case class RemoveVolume(volume: String, volumes: String*) extends VolumeAction
+  final case class ServiceBuilder(baseDockerfile: DockerFile, properties: Map[YamlValue, YamlValue] = Map.empty)
+
+  /////////////////////////
+
+  final class ProjectId(val id: UUID) {
+    override def toString: String = id.toString
+  }
+  final class DockerCommand(command: String) {
+    def execute(args: String*): Seq[String] = command +: args.toSeq
+  }
+  final class DockerComposeCommand(command: String) {
+    def execute(args: String*): Seq[String] = command +: args.toSeq
+  }
 
   trait Driver {
     def docker: DockerCommand
 
     def compose: DockerComposeCommand
-  }
 
-  final case class DockerCommand(command: String) {
-    def execute(args: String*): String = s"$command ${args.mkString(" ")}"
+    def newId: ProjectId
   }
-  final case class DockerComposeCommand(command: String) {
-    def execute(args: String*): String = s"$command ${args.mkString(" ")}"
-  }
-
-  implicit val testDuration: FiniteDuration = 60.seconds
 
   implicit val shellDriver = new Driver {
-    val docker = DockerCommand("docker")
-    val compose = DockerComposeCommand("docker-compose")
+    val docker = new DockerCommand("docker")
+    val compose = new DockerComposeCommand("docker-compose")
+
+    def newId = new ProjectId(UUID.randomUUID())
   }
 
-  implicit class ObservableMatchFilter(obs: Observable[LogEvent]) {
-    def matchFilter(eventMatches: (LogEvent => Boolean)*): Observable[Vector[LogEvent]] = {
-      obs
-        .scan(Vector.empty[LogEvent]) {
-          case (state, entry: LogEvent) if eventMatches(state.length)(entry) =>
-            println(s"Matched: $entry")
-            state :+ entry
-          case (state, _) =>
-            state
-        }
-        .filter(_.length == eventMatches.length)
-        .first
-    }
-  }
 }
 
-/**
- * TODO:
- */
-trait DockerComposeTestKit extends PatienceConfiguration {
-  this: FreeSpecLike =>
-
+trait DockerComposeTestKit {
   import DockerComposeTestKit._
-
-  implicit override val patienceConfig = super.patienceConfig.copy(timeout = Span(testDuration.toSeconds, Seconds))
 
   private final case class Version(major: Int, minor: Int, patch: Int) extends Ordered[Version] {
     override def compare(that: Version): Int = {
@@ -112,309 +133,257 @@ trait DockerComposeTestKit extends PatienceConfiguration {
         -1
       }
     }
+
+    override def toString: String = s"$major.$minor.$patch"
   }
+  private object Version {
+    def unapply(data: String): Option[(Int, Int, Int)] = {
+      val versionRE = "^.*(\\d+)\\.(\\d+)\\.(\\d+).*$".r
+      Try({
+        val versionRE(major, minor, patch) = data.stripLineEnd
 
-  private def parseVersion(data: String): Option[Version] = {
-    val versionRE = "^.*(\\d+)\\.(\\d+)\\.(\\d+).*$".r
-    try {
-      val versionRE(major, minor, patch) = data.stripLineEnd
-
-      Some(Version(major.toInt, minor.toInt, patch.toInt))
-    } catch {
-      case NonFatal(exn) =>
-        None
+        (major.toInt, minor.toInt, patch.toInt)
+      }).toOption
     }
   }
 
-  protected def debug(message: String): Unit = {
-    if (false) {
-      info(message)
-    }
-  }
-
-  /**
-   * TODO:
-   *
-   * @param expected
-   * @param timeout
-   * @return
-   */
-  def observe(expected: Int)(implicit timeout: FiniteDuration) = Matcher { (obs: Observable[Vector[LogEvent]]) =>
-    require(expected >= 0)
-
-    val result = Promise[Boolean]
-
-    obs
-      .first
-      .timeout(timeout)
-      .materialize
-      .foreach {
-        case OnCompleted if result.isCompleted =>
-          // No work to do
-          debug("Received OnCompleted and promise is completed")
-
-        case OnCompleted =>
-          val errMsg = "Received OnCompleted with no other events emitted"
-          alert(errMsg)
-          new TestFailedException(Some(errMsg), None, 0)
-
-        case event if result.isCompleted =>
-          val errMsg = s"Received $event after the test completed"
-          alert(errMsg)
-          new TestFailedException(Some(errMsg), None, 0)
-
-        case OnNext(events) =>
-          events.zipWithIndex.foreach { case (item, index) => info(s"Observation $index: $item") }
-          result.success(events.length == expected)
-
-        case OnError(_: TimeoutException) =>
-          debug("Test timed out - completing promise with false")
-          result.success(false)
-
-        case OnError(_: NoSuchElementException) =>
-          info("Observed no elements")
-          result.success(expected == 0)
-
-        case OnError(exn) =>
-          alert("Received OnError", Some(exn))
-          result.failure(exn)
-      }
-
-    MatchResult(Await.result(result.future, Duration.Inf), s"failed to observe $expected events", "observed unexpected events")
-  }
-
-  trait DockerContainer {
-    def pause(container: String)(implicit driver: Driver): Unit
-
-    def unpause(container: String)(implicit driver: Driver): Unit
-
-    def stop()(implicit driver: Driver): Unit
-
-    def logging(implicit driver: Driver): Observable[LogEvent]
-
-    def events(implicit driver: Driver): Observable[DockerEvent]
-
-    def run(container: String, command: String)(implicit driver: Driver): Observable[String]
-
-    def network(action: NetworkAction)(implicit driver: Driver): Unit
-
-    def volume(action: VolumeAction)(implicit driver: Driver): Unit
-  }
-
-  /**
-   * TODO:
-   *
-   * @param yaml
-   * @return
-   */
-  protected def start(yaml: String)(implicit driver: Driver): DockerContainer = {
-    val composeVersion = Try(driver.compose.execute("--version").!!).toOption.flatMap(parseVersion)
+  def up(projectName: String, yaml: DockerComposeDefinition)(implicit driver: Driver, log: Logger): DockerCompose = {
+    val composeVersion = Try(driver.compose.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)
     require(
-      composeVersion.exists(_ >= Version(1, 7, 0)),
-      s"Need docker-compose version >= 1.7.X (have $composeVersion)"
-    )
-    val dockerVersion = Try(driver.docker.execute("--version").!!).toOption.flatMap(parseVersion)
-    require(
-      dockerVersion.exists(_ >= Version(1, 11, 0)),
-      s"Need docker version >= 1.11.X (have $dockerVersion)"
+      composeVersion.exists(v => (Version.apply _).tupled(v) >= Version(1, 7, 0)),
+      s"Need docker-compose version >= 1.7.X (have version $composeVersion)"
     )
 
-    val errorLogger: ProcessLogger = ProcessLogger { err =>
-      if (err.length > 0 && err.charAt(0) != 27.toChar) {
-        alert(err)
+    val dockerVersion = Try(driver.docker.execute("--version").!!(log.devNull)).toOption.flatMap(Version.unapply)
+    require(
+      dockerVersion.exists(v => (Version.apply _).tupled(v) >= Version(1, 11, 0)),
+      s"Need docker version >= 1.11.X (have version $dockerVersion)"
+    )
+
+    val projectId = driver.newId
+    log.info(s"Up $projectName [$projectId]")
+    val project = s"$projectId/$projectName"
+    val projectDir = s"target/$project"
+    new File(projectDir).mkdirs()
+    for (path <- Files.newDirectoryStream(Paths.get(projectDir))) {
+      assert(Files.deleteIfExists(path))
+    }
+
+    val parsedYaml = Try(yaml.contents.parseYaml)
+    assert(parsedYaml.isSuccess, s"Failed to parse docker compose YAML - reason: $parsedYaml")
+    parsedYaml.foreach {
+      case YamlObject(obj) =>
+        assert(obj.containsKey(YamlString("version")) && obj(YamlString("version")) == YamlString("2"), "Docker compose YAML should be version 2")
+        assert(obj.containsKey(YamlString("services")), "Docker compose YAML needs a `services` key")
+        obj(YamlString("services")) match {
+          case YamlObject(services) =>
+            services.values.foreach {
+              case YamlObject(service) =>
+                if (service.containsKey(YamlString("template"))) {
+                  assert(! service.containsKey(YamlString("image")) && ! service.containsKey(YamlString("build")), "Docker compose `template` key is not usable with `image` and `build` keys")
+                  service(YamlString("template")) match {
+                    case YamlObject(template) =>
+                      assert(template.containsKey(YamlString("resources")), "Docker compose YAML templates must contain a `resources` key")
+                      assert(template.containsKey(YamlString("image")), "Docker compose YAML templates must contain an `image` key")
+                      // FIXME: following needs fixing!!
+                      assert(template(YamlString("image")).isInstanceOf[YamlString], "`image` key should be a string")
+                      assert(template(YamlString("resources")).isInstanceOf[YamlArray], "`resources` key should be an array")
+                      template(YamlString("resources")).asInstanceOf[YamlArray].elements.foreach { value =>
+                        assert(value.isInstanceOf[YamlString], "All `resources` template values should be strings")
+                        val resources = value.asInstanceOf[YamlString].value
+                        assert(resources.startsWith("/"), "All `resources` template values should be absolute paths")
+                        assert(Option(getClass.getResource(s"/docker$resources")).isDefined, "`resources` values should point to a path available on the classpath under a `docker` directory")
+                      }
+                      assert(template(YamlString("image")).asInstanceOf[YamlString].value.matches("^([^:]+)(:[^:]*)?$"), "`image` should match the regular expression `^([^:]+)(:[^:]*)?$`")
+                    case _ =>
+                      assert(assertion = false, "Docker compose YAML `template` key should be an object")
+                  }
+                }
+              case _ =>
+                assert(assertion = false, "Each docker compose `services` member should be an object")
+            }
+          case _ =>
+            assert(assertion = false, "Docker compose YAML `services` key should be an object")
+        }
+      case _ =>
+        assert(assertion = false, "Docker compose YAML should be an object")
+    }
+    val templatedServicesWithImageResources = parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+      case (_, service) =>
+        service.asYamlObject.fields.containsKey(YamlString("template"))
+    }.map { kv =>
+      kv.asInstanceOf[(YamlString, YamlObject)] match {
+        case (YamlString(name), YamlObject(service)) =>
+          val imagePattern = "^([^:]+)(:[^:]*)?$".r
+          val template = service(YamlString("template")).asYamlObject.fields
+          val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
+          if (driver.docker.execute("images", "-q", baseImage).!!(log.stderr).trim == "") {
+            driver.docker.execute("pull", baseImage).!!(log.stderr)
+          }
+          val imagePattern(repository, _) = baseImage
+          // TODO: implement some real error handling here!
+          val resources = (template(YamlString("resources")): @unchecked) match {
+            case YamlArray(elements) =>
+              elements.map(_.asInstanceOf[YamlString].value)
+          }
+
+          val rawEntryPoint = driver.docker.execute("inspect", "--format", "{{json .Config.Entrypoint}}", baseImage).!!(log.stderr).trim
+          val entryPoint =
+            if (rawEntryPoint == "null") {
+              Seq.empty[String]
+            } else {
+              (Try(JsonParser.parse(rawEntryPoint)): @unchecked) match {
+                case Success(JArray(list)) =>
+                  list.map(json => (json: @unchecked) match {
+                    case JString(data) => data
+                  }).toSeq
+                case Success(JString(data)) =>
+                  data.split("\\s+").toSeq
+                case Success(JNull) =>
+                  Seq.empty[String]
+              }
+            }
+          val rawCmd = driver.docker.execute("inspect", "--format", "{{json .Config.Cmd}}", baseImage).!!(log.stderr).trim
+          val cmd =
+            if (rawCmd == "null") {
+              Seq.empty[String]
+            } else {
+              (Try(JsonParser.parse(rawCmd)): @unchecked) match {
+                case Success(JArray(list)) =>
+                  list.map(json => (json: @unchecked) match { case JString(data) => data }).toSeq
+                case Success(JString(data)) =>
+                  data.split("\\s+").toSeq
+                case Success(JNull) =>
+                  Seq.empty[String]
+              }
+            }
+          val rawUser = driver.docker.execute("inspect", "--format", "{{json .Config.User}}", baseImage).!!(log.stderr).trim
+          val user =
+            if (rawUser == "null") {
+              None
+            } else {
+              (rawUser.drop(1).dropRight(1): @unchecked) match {
+                case "" =>
+                  None
+                case data =>
+                  Some(data)
+              }
+            }
+
+          val baseDockerfile = DockerFile(entryPoint, cmd, user, from = baseImage, rawContents = Seq(s"FROM $baseImage"))
+          assert(resources.nonEmpty)
+          assert(resources.length == resources.distinct.length)
+          assert(resources.forall(_.head == '/'))
+          val expandedBuild = resources.foldLeft(ServiceBuilder(baseDockerfile))(evaluateService(projectDir, name, log))
+
+          Files.write(Paths.get(s"$projectDir/$name/docker/Dockerfile"), expandedBuild.baseDockerfile.rawContents.mkString("", "\n", "\n").getBytes)
+
+          (s"$repository:$name.$projectId", Map(YamlString(name) -> YamlObject(service - YamlString("template") + (YamlString("image") -> YamlString(s"$repository:$name.$projectId")) + (YamlString("build") -> YamlObject(YamlString("context") -> YamlString(s"./$name/docker"))) ++ expandedBuild.properties)))
       }
     }
-    val pool: ExecutorService = Executors.newWorkStealingPool()
-    val dockerCompose = createTempFile("docker-compose-", ".yaml")
-    val yamlFile = s"${sys.env("HOME")}/${dockerCompose.getName}"
+    val imagesToDelete = templatedServicesWithImageResources.keys.toSeq
+    val templatedServices = templatedServicesWithImageResources.flatMap(_._2)
+    val nonTemplatedServices = parsedYaml.get.asYamlObject.fields(YamlString("services")).asYamlObject.fields.filter {
+      case (_, service) =>
+        ! service.asYamlObject.fields.containsKey(YamlString("template"))
+    }
+    val transformedYaml = YamlObject(
+      parsedYaml.get.asYamlObject.fields.updated(
+        YamlString("services"),
+        YamlObject(nonTemplatedServices ++ templatedServices)
+      )
+    )
+
+    val yamlFile = s"$projectDir/docker-compose.yaml"
     val output = new PrintWriter(yamlFile)
     try {
-      output.print(yaml)
+      output.print(transformedYaml.prettyPrint)
     } finally {
       output.close()
     }
+    val yamlConfig = Try(driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "config").!!(log.stderr).parseYaml.asYamlObject)
+    require(yamlConfig.isSuccess, yamlConfig.toString)
 
-    val yamlCheck = Try(driver.compose.execute("-f", yamlFile, "config", "-q").!!(errorLogger))
-    require(yamlCheck.isSuccess, yamlCheck)
+    driver.compose.execute("-p", projectId.toString, "-f", yamlFile, "up", "--build", "--remove-orphans", "-d").!!(log.stderr)
 
-    implicit val formats = DefaultFormats
+    new DockerCompose(projectName, projectId, yamlFile, yamlConfig.get, imagesToDelete)(driver, log)
+  }
 
-    new DockerContainer {
-      private[this] var isRunning: Boolean = true
+  private def evaluateService(projectDir: String, serviceName: String, log: Logger)(builder: ServiceBuilder, resource: String): ServiceBuilder = {
+    val dockerDir = getClass.getResource(s"/docker$resource").getPath
+    val (newDockerfile, properties) = copyTemplateResources(projectDir, serviceName, dockerDir, resource, builder.baseDockerfile, log)
 
-      debug(driver.compose.execute("-f", yamlFile, "up", "-d").!!(errorLogger))
+    ServiceBuilder(newDockerfile, builder.properties ++ properties)
+  }
 
-      /**
-       * TODO:
-       *
-       * @param container
-       */
-      def pause(container: String)(implicit driver: Driver): Unit = {
-        require(isRunning)
-
-        debug(driver.compose.execute("-f", yamlFile, "pause", container).!!(errorLogger))
-      }
-
-      /**
-       * TODO:
-       *
-       * @param container
-       */
-      def unpause(container: String)(implicit driver: Driver): Unit = {
-        require(isRunning)
-
-        debug(driver.compose.execute("-f", yamlFile, "unpause", container).!!(errorLogger))
-      }
-
-      /**
-       * TODO:
-       */
-      def stop()(implicit driver: Driver): Unit = {
-        debug(driver.compose.execute("-f", yamlFile, "down").!!(errorLogger))
-        assert(dockerCompose.delete())
-        pool.shutdown()
-        isRunning = false
-      }
-
-      /**
-       * TODO:
-       *
-       * @return
-       */
-      def logging(implicit driver: Driver): Observable[LogEvent] = {
-        require(isRunning)
-
-        Observable.defer(Observable[LogEvent] { subscriber =>
-          try {
-            pool.execute(new Runnable {
-              def run(): Unit = {
-                blocking {
-                  for (line <- driver.compose.execute("-f", yamlFile, "logs", "-f", "-t", "--no-color").lineStream_!(errorLogger)) {
-                    debug(line)
-                    val logLineRE = "^\\s*([a-zA-Z0-9_-]+)\\s+\\|\\s+(\\d+-\\d+-\\d+T\\d+:\\d+:\\d+.\\d+Z)\\s*(.*)\\z".r
-                    val logLineMatch = logLineRE.findFirstMatchIn(line)
-                    // TODO: introduce ability to parse JSON out of log messages
-                    if (logLineMatch.isDefined) {
-                      val image = logLineMatch.get.group(1)
-                      val time = logLineMatch.get.group(2)
-                      val message = logLineMatch.get.group(3)
-                      subscriber.onNext(LogEvent(ZonedDateTime.parse(time, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.nnnnnnnnnX")), Some(image), message))
-                    } else {
-                      subscriber.onNext(LogEvent(ZonedDateTime.now(ZoneId.of("UTC")), None, line))
-                    }
-                  }
-                  subscriber.onCompleted()
-                }
-              }
-            })
-          } catch {
-            case NonFatal(exn) =>
-              alert("Log parsing error", Some(exn))
-              subscriber.onError(exn)
-          }
-        })
-      }
-
-      /**
-       * TODO:
-       *
-       * @param driver
-       * @return
-       */
-      def events(implicit driver: Driver): Observable[DockerEvent] = {
-        require(isRunning)
-
-        Observable.defer(Observable[DockerEvent] { subscriber =>
-          try {
-            pool.execute(new Runnable {
-              def run(): Unit = {
-                blocking {
-                  for (line <- driver.compose.execute("-f", yamlFile, "events", "--json").lineStream_!(errorLogger)) {
-                    debug(line)
-                    Try(parse(line)) match {
-                      case Success(json) =>
-                        subscriber.onNext(json.extract[DockerEvent])
-
-                      case Failure(exn) =>
-                        subscriber.onError(exn)
-                    }
-                  }
-                  subscriber.onCompleted()
-                }
-              }
-            })
-          } catch {
-            case NonFatal(exn) =>
-              alert("Event parsing error", Some(exn))
-              subscriber.onError(exn)
-          }
-        })
-      }
-
-      /**
-       * TODO:
-       *
-       * @param container
-       * @param command
-       * @param driver
-       * @return
-       */
-      def run(container: String, command: String)(implicit driver: Driver): Observable[String] = {
-        require(isRunning)
-
-        Observable.defer(Observable[String] { subscriber =>
-          try {
-            pool.execute(new Runnable {
-              def run(): Unit = {
-                blocking {
-                  for (line <- driver.docker.execute("exec", "-it", container, command).lineStream_!(errorLogger)) {
-                    subscriber.onNext(line)
-                  }
-                  subscriber.onCompleted()
-                }
-              }
-            })
-          } catch {
-            case NonFatal(exn) =>
-              alert("Command processing error", Some(exn))
-              subscriber.onError(exn)
-          }
-        })
-      }
-
-      /**
-       * TODO:
-       *
-       * @param action
-       */
-      def network(action: NetworkAction)(implicit driver: Driver): Unit = {
-        require(isRunning)
-
-        action match {
-          case ConnectNetwork(network, container) =>
-            debug(driver.docker.execute("network", "connect", network, container).!!(errorLogger))
-
-          case DisconnectNetwork(network, container) =>
-            debug(driver.docker.execute("network", "disconnect", network, container).!!(errorLogger))
-
-          case RemoveNetwork(network, networks) =>
-            debug(driver.docker.execute("network", "rm", network, networks.mkString(" ")).!!(errorLogger))
+  private def copyTemplateResources(projectDir: String, serviceName: String, dockerDir: String, resource: String, baseDockerfile: DockerFile, log: Logger): (DockerFile, Map[YamlValue, YamlValue]) = {
+    var result = (baseDockerfile, Map.empty[YamlValue, YamlValue])
+    for (path <- Files.walk(Paths.get(dockerDir)).toScala[List]) {
+      if (path == Paths.get(s"$dockerDir/Dockerfile")) {
+        // Intentionally ignore Dockerfile's
+        log.warn(s"Ignoring file $path - Dockerfile must be a template (i.e. end in extension .scala.template)")
+      } else if (path == Paths.get(s"$dockerDir/Service.scala.template")) {
+        result = (result._1, evaluateService(resource))
+      } else if (path == Paths.get(s"$dockerDir/Dockerfile.scala.template")) {
+        val newDockerfile = evaluateDockerfile(projectDir, serviceName, dockerDir, resource, baseDockerfile, path)
+        result = (newDockerfile, result._2)
+      } else {
+        val targetFile = Paths.get(path.toString.replace(dockerDir, s"$projectDir/$serviceName/docker"))
+        val targetDir = new File(targetFile.getParent.toString)
+        if (!targetDir.exists()) {
+          targetDir.mkdirs()
+        }
+        if (!new File(targetFile.toString).exists()) {
+          Files.copy(path, targetFile, StandardCopyOption.COPY_ATTRIBUTES)
         }
       }
+    }
+    if (new File(s"$projectDir/$serviceName/docker").exists()) {
+      Files.write(Paths.get(s"$projectDir/$serviceName/docker/.dockerignore"), "template/*\n".getBytes)
+    }
+    result
+  }
 
-      /**
-       * TODO:
-       *
-       * @param action
-       */
-      def volume(action: VolumeAction)(implicit driver: Driver): Unit = {
-        require(isRunning)
+  private def evaluateDockerfile(projectDir: String, serviceName: String, dockerDir: String, resource: String, oldDockerfile: DockerFile, path: Path): DockerFile = {
+    // FIXME: to be correct, the following needs to use reflection!
+    val contents: Array[String] = (resource match {
+      case "/jmx/akka" =>
+        docker.jmx.akka.template.Dockerfile(oldDockerfile).body
+      case "/libfiu" =>
+        docker.libfiu.template.Dockerfile(oldDockerfile).body
+      case "/network/default/linux" =>
+        docker.network.default.linux.template.Dockerfile(oldDockerfile).body
+    }).split("\n")
 
-        action match {
-          case RemoveVolume(volume, volumes) =>
-            debug(driver.docker.execute("volume", "rm", volume, volumes.mkString(" ")).!!(errorLogger))
-        }
+    val Entrypoint = """^ENTRYPOINT\s+(.+)$""".r
+    val Cmd = """^CMD\s+(.+)$""".r
+    val User = """^USER\s+(.+)$""".r
+    val entryPoint = {
+      val result = contents.collect { case Entrypoint(value) => value.trim }.toSeq
+      if (result.isEmpty) {
+        oldDockerfile.entrypoint
+      } else {
+        result
       }
+    }
+    val cmd = {
+      val result = contents.collect { case Cmd(value) => value.trim }.toSeq
+      if (result.isEmpty) {
+        oldDockerfile.cmd
+      } else {
+        result
+      }
+    }
+    val user = contents.collect { case User(value) => value.trim }.lastOption.orElse(oldDockerfile.user)
+
+    DockerFile(entryPoint, cmd, user, oldDockerfile.from, oldDockerfile.rawContents ++ contents.filterNot(_.matches("^FROM\\s+.*$")))
+  }
+
+  private def evaluateService(resource: String): Map[YamlValue, YamlValue] = {
+    // FIXME: to be correct, the following needs to use reflection!
+    resource match {
+      case "/network/default/linux" =>
+        docker.network.default.linux.template.Service().body.parseYaml.asYamlObject.fields
     }
   }
 }

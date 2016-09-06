@@ -12,21 +12,24 @@ services:
   - docker
 
 env:
-  DOCKER_VERSION: 1.11.1-0~trusty
-  DOCKER_COMPOSE_VERSION: 1.7.0
+  DOCKER_VERSION: 1.12.0-0~trusty
+  DOCKER_COMPOSE_VERSION: 1.8.0
 
 before_install:
   - apt-cache madison docker-engine
   - sudo apt-get -o Dpkg::Options::="--force-confnew" install -y docker-engine=${DOCKER_VERSION}
-  - sudo rm /usr/local/bin/docker-compose
   - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
 
 script:
+  - cat /proc/cpuinfo
+  - cat /proc/meminfo
   - docker version
   - docker-compose version
+  - sbt ++$TRAVIS_SCALA_VERSION clean docker:publish-local
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test
   - sbt coverageReport
   - sbt coverageAggregate
   - sbt codacyCoverage
+  - sbt updateImpactSubmit

@@ -1,0 +1,16 @@
+@import cakesolutions.docker.testkit.DockerComposeTestKit._
+@( dockerfile: DockerFile )
+FROM @{ dockerfile.from }
+
+USER root
+
+# NOTE: due to buggy libfiu-dev packages in jessie, we need to build libfiu ourselves
+
+RUN apt-get update && apt-get install -y build-essential git-core python
+
+RUN cd /tmp && git clone https://github.com/albertito/libfiu.git
+RUN cd /tmp/libfiu && make && make install && ldconfig
+
+@{ dockerfile.user.fold("")("USER " + _) }
+
+ENTRYPOINT [ "/usr/local/bin/fiu-run", "-x", @{ (dockerfile.entrypoint ++ dockerfile.cmd).mkString("\"", "\", \"", "\"") } ]
