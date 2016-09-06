@@ -15,6 +15,7 @@ import scala.collection.JavaConversions._
 import scala.compat.java8.StreamConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
+import scala.util.control.NonFatal
 import scala.util.{Success, Try}
 
 object DockerComposeTestKit {
@@ -218,7 +219,12 @@ trait DockerComposeTestKit {
           val template = service(YamlString("template")).asYamlObject.fields
           val baseImage = template(YamlString("image")).asInstanceOf[YamlString].value
           if (driver.docker.execute("images", "-q", baseImage).!!(log.stderr).trim == "") {
-            driver.docker.execute("pull", baseImage).!!(log.stderr)
+            try {
+              driver.docker.execute("pull", baseImage).!!(log.stderr)
+            } catch {
+              case NonFatal(exn) =>
+                log.error(s"Failed to pull docker image $baseImage", exn)
+            }
           }
           val imagePattern(repository, _) = baseImage
           // TODO: implement some real error handling here!
