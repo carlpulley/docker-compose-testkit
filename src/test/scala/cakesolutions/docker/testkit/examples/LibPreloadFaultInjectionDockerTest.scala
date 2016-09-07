@@ -1,6 +1,9 @@
+// Copyright 2016 Carl Pulley
+
 package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
+import cakesolutions.BuildInfo
 import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.LibFiuClient
 import cakesolutions.docker.testkit.logging.TestLogger
@@ -19,8 +22,8 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
   import ObservableMatcher._
 
   val initialDelay = 10.seconds
-  val maxWait = 30.seconds
-  val version = "0.0.3-SNAPSHOT"
+  val maxWait = 40.seconds
+  val version = BuildInfo.version
 
   implicit val testDuration: FiniteDuration = initialDelay + (2 * maxWait)
   implicit val actorSystem = ActorSystem("LibPreloadFaultInjectionDockerTest")
@@ -78,7 +81,7 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       val testSimulation = for {
         _ <- stable(initialDelay + Random.nextInt(maxWait.toSeconds.toInt).seconds).run(eventStream).outcome
         _ = note("Stable running container")
-        _ = akkaNode.random(posix.mm(), 0.1)
+        _ = akkaNode.random(posix.mm(), 0.2)
         _ = note("Random fault injection enabled")
         _ <- negation(stable(maxWait).run(eventStream)).outcome
         _ = note("Container died")

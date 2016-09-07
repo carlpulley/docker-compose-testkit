@@ -4,16 +4,21 @@ import Dependencies._
 
 name := "docker-compose-testkit"
 
-val buildVersion = "0.0.3-SNAPSHOT"
+val buildVersion = "0.0.4-SNAPSHOT"
 
-lazy val root = (project in file(".")).
-  enablePlugins(SbtTwirl).
-  settings(Template.settings: _*).
-  settings(CommonProject.settings: _*).
-  settings(ScalaDoc.settings: _*).
-  settings(Publish.settings: _*).
-  settings(version := buildVersion).
-  settings(
+lazy val root = (project in file("."))
+  .enablePlugins(SbtTwirl)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(Template.settings: _*)
+  .settings(CommonProject.settings: _*)
+  .settings(ScalaDoc.settings: _*)
+  .settings(Publish.settings: _*)
+  .settings(version := buildVersion)
+  .settings(
+    buildInfoKeys := Seq[BuildInfoKey](name, version, Keys.scalaVersion, sbtVersion),
+    buildInfoPackage := "cakesolutions"
+  )
+  .settings(
     resolvers += Resolver.jcenterRepo,
     libraryDependencies ++= Seq(
       akka.actor,
@@ -36,11 +41,11 @@ lazy val root = (project in file(".")).
     dependencyOverrides ++= Set(
       java8Compat
     )
-  ).
-  aggregate(
+  )
+  .aggregate(
     clusterNode
   )
 
-lazy val clusterNode = (project in file("akka-cluster-node")).
-  settings(CommonProject.settings: _*).
-  settings(version := buildVersion)
+lazy val clusterNode = (project in file("akka-cluster-node"))
+  .settings(CommonProject.settings: _*)
+  .settings(version := buildVersion)

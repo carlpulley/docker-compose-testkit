@@ -1,8 +1,11 @@
+// Copyright 2016 Carl Pulley
+
 package cakesolutions.docker.testkit.examples
 
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus
 import akka.cluster.MemberStatus.Up
+import cakesolutions.BuildInfo
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit.automata.MatchingAutomata
 import cakesolutions.docker.testkit.clients.AkkaClusterClient
@@ -27,7 +30,7 @@ object AutoDownSplitBrainDockerTest {
   val autoDown = 10.seconds
   val etcdPort = 2379
   val leaderNode = "left-node-A"
-  val version = "0.0.3-SNAPSHOT"
+  val version = BuildInfo.version
 
   def clusterJoin(node: String): LogEvent => Boolean = { event =>
     event.message.endsWith(s"Leader is moving node [akka.tcp://SBRTestCluster@$node:$akkaPort] to [Up]")

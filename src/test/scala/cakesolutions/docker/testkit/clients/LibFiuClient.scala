@@ -1,3 +1,5 @@
+// Copyright 2016 Carl Pulley
+
 package cakesolutions.docker.testkit.clients
 
 import cakesolutions.docker.testkit.DockerImage

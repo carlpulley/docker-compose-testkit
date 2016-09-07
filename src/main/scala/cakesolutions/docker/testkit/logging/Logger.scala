@@ -1,8 +1,14 @@
+// Copyright 2016 Carl Pulley
+
 package cakesolutions.docker.testkit.logging
+
+import com.typesafe.config.ConfigFactory
 
 import scala.sys.process.ProcessLogger
 
 trait Logger {
+  protected[this] val config = ConfigFactory.load()
+
   def debug(message: String): Unit
 
   def info(message: String): Unit
