@@ -81,7 +81,7 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
       val testSimulation = for {
         _ <- stable(initialDelay + Random.nextInt(maxWait.toSeconds.toInt).seconds).run(eventStream).outcome
         _ = note("Stable running container")
-        _ = akkaNode.random(posix.mm(), 0.1)
+        _ = akkaNode.random(posix.mm(), 0.2)
         _ = note("Random fault injection enabled")
         _ <- negation(stable(maxWait).run(eventStream)).outcome
         _ = note("Container died")
