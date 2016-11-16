@@ -6,6 +6,7 @@ import sbt._
 object Publish {
   val settings = Seq(
     publishMavenStyle := true,
+    publishArtifact := true,
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
     publishTo := {

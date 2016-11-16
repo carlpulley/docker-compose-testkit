@@ -12,8 +12,8 @@ services:
   - docker
 
 env:
-  DOCKER_VERSION: 1.12.0-0~trusty
-  DOCKER_COMPOSE_VERSION: 1.8.0
+  DOCKER_VERSION: 1.12.2-0~trusty
+  DOCKER_COMPOSE_VERSION: 1.8.1
 
 before_install:
   - apt-cache madison docker-engine
@@ -27,9 +27,10 @@ script:
   - cat /proc/meminfo
   - docker version
   - docker-compose version
+  - sbt ++$TRAVIS_SCALA_VERSION clean dockerCompose/publish-local dockerComposeTemplates/publish-local
   - sbt ++$TRAVIS_SCALA_VERSION clean docker:publish-local
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test
-  - sbt coverageReport
-  - sbt coverageAggregate
-  - sbt codacyCoverage
-  - sbt updateImpactSubmit
+  - sbt ++$TRAVIS_SCALA_VERSION coverageReport
+  - sbt ++$TRAVIS_SCALA_VERSION coverageAggregate
+  - sbt ++$TRAVIS_SCALA_VERSION codacyCoverage
+  - sbt ++$TRAVIS_SCALA_VERSION updateImpactSubmit

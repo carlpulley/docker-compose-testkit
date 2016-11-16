@@ -1,51 +1,25 @@
 // Copyright 2016 Carl Pulley
 
-import Dependencies._
-
-name := "docker-compose-testkit"
-
-val buildVersion = "0.0.4-SNAPSHOT"
+import sbt.Keys._
 
 lazy val root = (project in file("."))
-  .enablePlugins(SbtTwirl)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(Template.settings: _*)
-  .settings(CommonProject.settings: _*)
-  .settings(ScalaDoc.settings: _*)
-  .settings(Publish.settings: _*)
-  .settings(version := buildVersion)
-  .settings(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, Keys.scalaVersion, sbtVersion),
-    buildInfoPackage := "cakesolutions"
+  .settings(publishArtifact := false)
+  .aggregate(
+    dockerCompose,
+    dockerComposeTemplates,
+    dockerComposeTests
   )
+  .enablePlugins(VersionEyePlugin)
+
+lazy val dockerCompose = project in file("docker-compose-testkit/core")
+
+lazy val dockerComposeTemplates = (project in file("docker-compose-testkit/templates"))
+  .dependsOn(dockerCompose)
+
+lazy val dockerComposeTests = (project in file("docker-compose-testkit/tests"))
   .settings(
-    resolvers += Resolver.jcenterRepo,
     libraryDependencies ++= Seq(
-      akka.actor,
-      akka.cluster % "test",
-      akka.contrib,
-      akka.http.core % "test",
-      akka.http.experimental % "test",
-      akka.http.testkit % "test",
-      akka.slf4j,
-      java8Compat,
-      json4s.native,
-      json4s.jackson,
-      monix.core,
-      monix.reactive,
-      pprint,
-      scalacheck,
-      scalatest,
-      yaml
-    ),
-    dependencyOverrides ++= Set(
-      java8Compat
+      "net.cakesolutions" %% "docker-compose-testkit-templates" % (version in dockerComposeTemplates).value % Test,
+      "net.cakesolutions" %% "docker-compose-testkit" % (version in dockerCompose).value % Test
     )
   )
-  .aggregate(
-    clusterNode
-  )
-
-lazy val clusterNode = (project in file("akka-cluster-node"))
-  .settings(CommonProject.settings: _*)
-  .settings(version := buildVersion)

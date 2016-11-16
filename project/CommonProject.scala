@@ -11,7 +11,8 @@ object CommonProject {
   val settings =
     Seq(
       organization := "net.cakesolutions",
-      scalaVersion := Dependencies.scalaVersion,
+      scalaVersion := Dependencies.scalaVersions.head,
+      crossScalaVersions := Dependencies.scalaVersions.tail,
       scalacOptions in Compile ++= Seq(
         "-encoding", "UTF-8",
         "-target:jvm-1.8",
@@ -30,9 +31,11 @@ object CommonProject {
       ),
       javacOptions in doc := Seq(),
       javaOptions += "-Xmx2G",
+      testOptions in Test += Tests.Argument("-oFD"),
       outputStrategy := Some(StdoutOutput),
       fork := true,
-      fork in test := true
+      fork in test := true,
+      publishArtifact := false
     )
 
 }

@@ -1,0 +1,29 @@
+// Copyright 2016 Carl Pulley
+
+package cakesolutions.docker.testkit
+
+import monix.execution.Scheduler
+import monix.reactive.Observable
+import monix.reactive.observables.ConnectableObservable
+
+object TimedObservable {
+
+  final case class cold[Data](observable: Observable[Data])(implicit val scheduler: Scheduler) extends TimedObservable[Data]
+
+  final case class hot[Data](observable: ConnectableObservable[Data])(implicit val scheduler: Scheduler) extends TimedObservable[Data]
+
+}
+
+sealed trait TimedObservable[Data] {
+  self =>
+
+  def observable: Observable[Data]
+
+  def scheduler: Scheduler
+
+  def map[Result](f: Data => Result): TimedObservable[Result] = new TimedObservable[Result] {
+    def observable: Observable[Result] = self.observable.map(f)
+
+    def scheduler: Scheduler = self.scheduler
+  }
+}

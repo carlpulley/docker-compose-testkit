@@ -7,7 +7,6 @@ import sbt._
 
 object Template {
 
-  // FIXME:
   val settings = Seq(
     sourceDirectories in (Compile, TwirlKeys.compileTemplates) := (unmanagedResourceDirectories in Compile).value,
     templateFormats := Map("template" -> "play.twirl.api.TxtFormat")
