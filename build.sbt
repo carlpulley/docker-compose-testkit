@@ -3,7 +3,10 @@
 import sbt.Keys._
 
 lazy val root = (project in file("."))
-  .settings(publishArtifact := false)
+  .settings(
+    publishArtifact := false,
+    sonatypeProfileName := "net.cakesolutions"
+  )
   .aggregate(
     dockerCompose,
     dockerComposeTemplates,

@@ -7,6 +7,8 @@ name := "docker-compose-testkit-tests"
 
 CommonProject.settings
 
+Publish.settings
+
 enablePlugins(JavaAppPackaging)
 
 enablePlugins(DockerPlugin)

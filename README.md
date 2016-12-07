@@ -40,5 +40,5 @@ sbt clean ghpagesPushSite
 ### Publishing Sonatype Artefacts
 
 ```
-sbt clean dockerCompose/publishSigned dockerComposeTemplates/publishSigned sonatypeRelease
+sbt clean publishSigned sonatypeRelease
 ```
