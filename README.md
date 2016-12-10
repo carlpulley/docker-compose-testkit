@@ -31,6 +31,13 @@ sbt clean dockerCompose/publish-local dockerComposeTemplates/publish-local
 sbt clean docker:publish-local
 ```
 
+### Running Tests
+
+```
+sbt clean docker:publish-local
+sbt test
+```
+
 ### Publishing API Documentation
 
 ```
