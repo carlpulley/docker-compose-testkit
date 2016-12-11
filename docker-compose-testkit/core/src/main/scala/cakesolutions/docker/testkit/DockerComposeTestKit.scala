@@ -397,7 +397,6 @@ trait DockerComposeTestKit {
       Some(DockerFile(entryPoint, cmd, user, oldDockerfile.from, oldDockerfile.rawContents ++ contents.filterNot(_.matches("^FROM\\s+.*$"))))
     } catch {
       case NonFatal(exn) =>
-        println(s"DEBUGGY: $exn")
         None
     }
   }
