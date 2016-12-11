@@ -58,7 +58,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
      |
      |services:
      |  wordpress:
-     |    image: wordpress
+     |    image: wordpress:4.6.1
      |    environment:
      |      WORDPRESS_DB_HOST: db:3306
      |      WORDPRESS_DB_PASSWORD: password
@@ -70,7 +70,7 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
      |    depends_on:
      |      - db
      |  db:
-     |    image: mariadb
+     |    image: mariadb:10.1.19
      |    environment:
      |      MYSQL_ROOT_PASSWORD: password
      |    networks:
