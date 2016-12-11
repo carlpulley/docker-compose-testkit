@@ -11,8 +11,6 @@ object CommonProject {
   val settings =
     Seq(
       organization := "net.cakesolutions",
-      scalaVersion := Dependencies.scalaVersions.head,
-      crossScalaVersions := Dependencies.scalaVersions.tail,
       scalacOptions in Compile ++= Seq(
         "-encoding", "UTF-8",
         "-target:jvm-1.8",

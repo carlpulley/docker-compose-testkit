@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
   monix.reactive,
   pprint,
   scalacheck,
-  scalacompiler,
+  scalacompiler.value,
   scalatest,
   yaml
 )
