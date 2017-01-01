@@ -19,6 +19,8 @@ libraryDependencies ++= Seq(
   akka.http.core,
   akka.http.experimental,
   akka.slf4j,
+  eff.core,
+  eff.monix,
   java8Compat,
   json4s.native,
   json4s.jackson,
@@ -28,6 +30,7 @@ libraryDependencies ++= Seq(
   scalacheck,
   scalacompiler.value,
   scalatest,
+  shapeless,
   yaml
 )
 

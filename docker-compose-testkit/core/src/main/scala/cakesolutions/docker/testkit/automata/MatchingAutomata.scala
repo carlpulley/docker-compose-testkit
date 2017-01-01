@@ -38,22 +38,42 @@ object MatchingAutomata {
   }
 
   sealed trait Action {
-    def emit: Notify
+    def emit: Option[Notify]
   }
-  final case class Goto[State : ClassTag](state: State, forMax: FiniteDuration = null, emit: Notify = null) extends Action
-  final case class Stay(emit: Notify = null) extends Action
-  final case class Stop(emit: Notify) extends Action
+  final case class Goto[State : ClassTag](state: State, forMax: Option[FiniteDuration] = None, emit: Option[Notify] = None) extends Action
+  object Goto {
+    def apply[State : ClassTag](state: State, forMax: FiniteDuration): Goto[State] = {
+      Goto(state, Some(forMax), None)
+    }
+
+    def apply[State : ClassTag](state: State, emit: Notify): Goto[State] = {
+      Goto(state, None, Some(emit))
+    }
+
+    def apply[State : ClassTag](state: State, forMax: FiniteDuration, emit: Notify): Goto[State] = {
+      Goto(state, Some(forMax), Some(emit))
+    }
+  }
+  final case class Stay(emit: Option[Notify] = None) extends Action
+  object Stay {
+    def apply(emit: Notify): Stay = {
+      Stay(Some(emit))
+    }
+  }
+  final case class Stop(toEmit: Notify) extends Action {
+    val emit = Some(toEmit)
+  }
 
   case object StateTimeout extends Exception
 
   type StateFunction = PartialFunction[Any, Action]
 
   def apply[State : ClassTag, Input : ClassTag](initial: State)(transition: PartialFunction[State, StateFunction]): MatchingAutomata[State, Input] = {
-    apply[State, Input](initial, null)(transition)
+    new MatchingAutomata[State, Input](initial, None, transition)
   }
 
   def apply[State : ClassTag, Input : ClassTag](initial: State, timeout: FiniteDuration)(transition: PartialFunction[State, StateFunction]): MatchingAutomata[State, Input] = {
-    new MatchingAutomata[State, Input](initial, timeout, transition)
+    new MatchingAutomata[State, Input](initial, Some(timeout), transition)
   }
 
   final def not[In](obs: In => Observable[Notify]): In => Observable[Notify] = { in =>
@@ -139,7 +159,7 @@ object MatchingAutomata {
 
 final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
   initial: IOState,
-  timeout: FiniteDuration,
+  timeout: Option[FiniteDuration],
   transition: PartialFunction[IOState, MatchingAutomata.StateFunction]
 ) {
   import MatchingAutomata._
@@ -241,7 +261,7 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
 
   private class IOAutomata[Input](
     initial: IOState,
-    timeout: FiniteDuration,
+    timeout: Option[FiniteDuration],
     transition: PartialFunction[IOState, StateFunction],
     outputs: Seq[TimedObservable[Output]],
     inputs: Seq[Observer[Input]],
@@ -294,7 +314,7 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
     val inputSubscriptions: Seq[Cancelable] = inputs.zipWithIndex.map { case (point, index) => traces(index).subscribe(point) }
     val outputSubscription: Cancelable = Observable(outputs.map(_.observable): _*).merge.subscribe(fsmObs)
 
-    private[this] var state: State = State(initial, Option(timeout), callbacks(Option(timeout)): _*)
+    private[this] var state: State = State(initial, timeout, callbacks(timeout): _*)
 
     def getState = state
 
@@ -309,11 +329,11 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
           val action = transition(state.state)(StateTimeout)
           val timeout = action match {
             case Goto(_, forMax, _) =>
-              Some(forMax)
+              forMax
             case _ =>
               None
           }
-          Option(action.emit).foreach(msg => getSubscribers.foreach(_.onNext(msg)))
+          action.emit.foreach(msg => getSubscribers.foreach(_.onNext(msg)))
           state = nextState(action, timeout)
         } catch {
           case NonFatal(exn) =>
@@ -333,7 +353,7 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
           val action = transition(state.state).lift(event).getOrElse(Stay())
           val timeout = action match {
             case Goto(_, forMax, _) =>
-              Some(forMax)
+              forMax
             case _ =>
               None
           }
@@ -341,7 +361,7 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
             case Stop(_: Fail) =>
               // Sending to subscribers will be handled in stop via nextState
             case _ =>
-              Option(action.emit)
+              action.emit
                 .foreach(msg => getSubscribers.foreach(_.onNext(msg)))
           }
           state = nextState(action, timeout)
@@ -367,7 +387,7 @@ final class MatchingAutomata[IOState : ClassTag, Output : ClassTag] private (
         case Goto(next: IOState, forMax, _) =>
           sender() ! Ack.Continue
           state.callbacks.foreach(_.cancel())
-          State(next, Option(forMax), callbacks(Option(forMax)): _*)
+          State(next, forMax, callbacks(forMax): _*)
         case Stop(exn: Fail) =>
           stop(Some(exn))
           state

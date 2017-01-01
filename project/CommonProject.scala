@@ -33,7 +33,9 @@ object CommonProject {
       outputStrategy := Some(StdoutOutput),
       fork := true,
       fork in test := true,
-      publishArtifact := false
+      publishArtifact := false,
+      addCompilerPlugin(Dependencies.kindProjection),
+      addCompilerPlugin(Dependencies.si2712)
     )
 
 }
