@@ -1,22 +1,22 @@
 <!DOCTYPE html >
 <html>
         <head>
-          <title>LiftedObservableHelper - docker-compose-testkit 0.0.4 - cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper</title>
-          <meta name="description" content="LiftedObservableHelper - docker - compose - testkit 0.0.4 - cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper" />
-          <meta name="keywords" content="LiftedObservableHelper docker compose testkit 0.0.4 cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper" />
+          <title>Observe - docker-compose-testkit 0.0.5-SNAPSHOT - cakesolutions.docker.testkit.Observe</title>
+          <meta name="description" content="Observe - docker - compose - testkit 0.0.5 - SNAPSHOT - cakesolutions.docker.testkit.Observe" />
+          <meta name="keywords" content="Observe docker compose testkit 0.0.5 SNAPSHOT cakesolutions.docker.testkit.Observe" />
           <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
           
-      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
-      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
-      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
-      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
-      <script type="text/javascript" src="../../../../lib/template.js"></script>
-      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../lib/tools.tooltip.js"></script>
       
       <script type="text/javascript">
          if(top === self) {
-            var url = '../../../../index.html';
-            var hash = 'cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper';
+            var url = '../../../index.html';
+            var hash = 'cakesolutions.docker.testkit.package$$Observe';
             var anchor = window.location.hash;
             var anchor_opt = '';
             if (anchor.length >= 1)
@@ -28,30 +28,30 @@
         </head>
         <body class="type">
       <div id="definition">
-        <img alt="Class" src="../../../../lib/class_big.png" />
-        <p id="owner"><a href="../../../package.html" class="extype" name="cakesolutions">cakesolutions</a>.<a href="../../package.html" class="extype" name="cakesolutions.docker">docker</a>.<a href="../package.html" class="extype" name="cakesolutions.docker.testkit">testkit</a>.<a href="package.html" class="extype" name="cakesolutions.docker.testkit.automata">automata</a>.<a href="MatchingAutomata$.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata">MatchingAutomata</a></p>
-        <h1>LiftedObservableHelper</h1><h3><span class="morelinks"><div>Related Doc:
-            <a href="MatchingAutomata$.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata">package MatchingAutomata</a>
+        <img alt="Class" src="../../../lib/class_big.png" />
+        <p id="owner"><a href="../../package.html" class="extype" name="cakesolutions">cakesolutions</a>.<a href="../package.html" class="extype" name="cakesolutions.docker">docker</a>.<a href="package.html" class="extype" name="cakesolutions.docker.testkit">testkit</a></p>
+        <h1>Observe</h1><h3><span class="morelinks"><div>Related Doc:
+            <a href="package.html" class="extype" name="cakesolutions.docker.testkit">package testkit</a>
           </div></span></h3><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       </div>
 
       <h4 id="signature" class="signature">
       <span class="modifier_kind">
-        <span class="modifier">implicit </span>
-        <span class="kind">class</span>
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
       </span>
       <span class="symbol">
-        <span class="name">LiftedObservableHelper</span><span class="tparams">[<span name="InL">InL</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+        <span class="name">Observe</span><span class="tparams">[<span name="Event">Event</span>]</span><span class="params">(<span name="event">event: <span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span></span>)</span><span class="result"> extends <a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4>
       
           <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
           <span class="toggle">Linear Supertypes</span>
-          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.Serializable">Serializable</span>, <span class="extype" name="java.io.Serializable">Serializable</span>, <span class="extype" name="scala.Product">Product</span>, <span class="extype" name="scala.Equals">Equals</span>, <a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span>], <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
         </div></div>
         
 
@@ -69,7 +69,7 @@
                 <span class="filtertype">Inherited<br />
                 </span>
                 <ol id="linearization">
-                  <li class="in" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper"><span>LiftedObservableHelper</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                  <li class="in" name="cakesolutions.docker.testkit.Observe"><span>Observe</span></li><li class="in" name="scala.Serializable"><span>Serializable</span></li><li class="in" name="java.io.Serializable"><span>Serializable</span></li><li class="in" name="scala.Product"><span>Product</span></li><li class="in" name="scala.Equals"><span>Equals</span></li><li class="in" name="cakesolutions.docker.testkit.ObservedEvent"><span>ObservedEvent</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
                 </ol>
               </div><div id="ancestors">
             <span class="filtertype"></span>
@@ -88,20 +88,20 @@
         <div id="allMembers">
         <div id="constructors" class="members">
               <h3>Instance Constructors</h3>
-              <ol><li name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper#&lt;init&gt;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="&lt;init&gt;(left:InL=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper[InL]"></a>
-      <a id="&lt;init&gt;:LiftedObservableHelper[InL]"></a>
+              <ol><li name="cakesolutions.docker.testkit.Observe#&lt;init&gt;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="&lt;init&gt;(event:Event):cakesolutions.docker.testkit.package.Observe[Event]"></a>
+      <a id="&lt;init&gt;:Observe[Event]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">new</span>
       </span>
       <span class="symbol">
-        <span class="name">LiftedObservableHelper</span><span class="params">(<span name="left">left: (<span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.InL">InL</span>) ⇒ <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="MatchingAutomata$$Notify.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.Notify">Notify</a>]</span>)</span>
+        <span class="name">Observe</span><span class="params">(<span name="event">event: <span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span></span>)</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@&lt;init&gt;(left:InL=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper[InL]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@&lt;init&gt;(event:Event):cakesolutions.docker.testkit.package.Observe[Event]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       
@@ -126,8 +126,8 @@
         <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@!=(x$1:Any):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -143,28 +143,11 @@
         <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@##():Int" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@##():Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
-    </li><li name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper#&amp;&amp;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="&amp;&amp;[InR](right:InR=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):(InL,InR)=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]"></a>
-      <a id="&amp;&amp;[InR]((InR)⇒Observable[Notify]):(InL,InR)⇒Observable[Notify]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier">final </span>
-        <span class="kind">def</span>
-      </span>
-      <span class="symbol">
-        <span title="gt4s: $amp$amp" class="name">&amp;&amp;</span><span class="tparams">[<span name="InR">InR</span>]</span><span class="params">(<span name="right">right: (<span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.&amp;&amp;.InR">InR</span>) ⇒ <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="MatchingAutomata$$Notify.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.Notify">Notify</a>]</span>)</span><span class="result">: (<span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.InL">InL</span>, <span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.&amp;&amp;.InR">InR</span>) ⇒ <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="MatchingAutomata$$Notify.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.Notify">Notify</a>]</span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@&amp;&amp;[InR](right:InR=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):(InL,InR)=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
     </li><li name="scala.AnyRef#==" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="==(x$1:Any):Boolean"></a>
       <a id="==(Any):Boolean"></a>
@@ -177,8 +160,8 @@
         <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@==(x$1:Any):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -194,8 +177,8 @@
         <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@asInstanceOf[T0]:T0" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
@@ -211,11 +194,11 @@
         <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@clone():Object" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@clone():Object" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
                 <span class="name">@throws</span><span class="args">(<span>
       
       <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
@@ -234,28 +217,28 @@
         <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
-    </li><li name="scala.AnyRef#equals" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="equals(x$1:Any):Boolean"></a>
-      <a id="equals(Any):Boolean"></a>
+    </li><li name="cakesolutions.docker.testkit.Observe#event" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="event:Event"></a>
+      <a id="event:Event"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
-        <span class="kind">def</span>
+        <span class="kind">val</span>
       </span>
       <span class="symbol">
-        <span class="name">equals</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+        <span class="name">event</span><span class="result">: <span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@equals(x$1:Any):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@event:Event" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+      
     </li><li name="scala.AnyRef#finalize" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="finalize():Unit"></a>
       <a id="finalize():Unit"></a>
@@ -268,11 +251,11 @@
         <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@finalize():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
                 <span class="name">@throws</span><span class="args">(<span>
       
       <span class="symbol">classOf[java.lang.Throwable]</span>
@@ -291,25 +274,8 @@
         <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@getClass():Class[_]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
-    </li><li name="scala.AnyRef#hashCode" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="hashCode():Int"></a>
-      <a id="hashCode():Int"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">def</span>
-      </span>
-      <span class="symbol">
-        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@hashCode():Int" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -325,8 +291,8 @@
         <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
@@ -342,8 +308,8 @@
         <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -359,8 +325,8 @@
         <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@notify():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@notify():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -376,8 +342,8 @@
         <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@notifyAll():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -393,28 +359,11 @@
         <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
-    </li><li name="scala.AnyRef#toString" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="toString():String"></a>
-      <a id="toString():String"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">def</span>
-      </span>
-      <span class="symbol">
-        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@toString():String" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
     </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="wait():Unit"></a>
       <a id="wait():Unit"></a>
@@ -427,8 +376,8 @@
         <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@wait():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@wait():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -450,8 +399,8 @@
         <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -473,8 +422,8 @@
         <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@wait(x$1:Long):Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../index.html#cakesolutions.docker.testkit.package$$Observe@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -484,23 +433,6 @@
     </span>)</span>
               
         </dd></dl></div>
-    </li><li name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper#||" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="||[InR](right:InR=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):(InL,InR)=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]"></a>
-      <a id="||[InR]((InR)⇒Observable[Notify]):(InL,InR)⇒Observable[Notify]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier">final </span>
-        <span class="kind">def</span>
-      </span>
-      <span class="symbol">
-        <span title="gt4s: $bar$bar" class="name">||</span><span class="tparams">[<span name="InR">InR</span>]</span><span class="params">(<span name="right">right: (<span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.||.InR">InR</span>) ⇒ <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="MatchingAutomata$$Notify.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.Notify">Notify</a>]</span>)</span><span class="result">: (<span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.InL">InL</span>, <span class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.LiftedObservableHelper.||.InR">InR</span>) ⇒ <span class="extype" name="monix.reactive.Observable">Observable</span>[<a href="MatchingAutomata$$Notify.html" class="extype" name="cakesolutions.docker.testkit.automata.MatchingAutomata.Notify">Notify</a>]</span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#cakesolutions.docker.testkit.automata.MatchingAutomata$$LiftedObservableHelper@||[InR](right:InR=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]):(InL,InR)=&gt;monix.reactive.Observable[cakesolutions.docker.testkit.automata.MatchingAutomata.Notify]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
     </li></ol>
             </div>
 
@@ -510,7 +442,17 @@
         </div>
 
         <div id="inheritedMembers">
-        <div class="parent" name="scala.AnyRef">
+        <div class="parent" name="scala.Serializable">
+              <h3>Inherited from <span class="extype" name="scala.Serializable">Serializable</span></h3>
+            </div><div class="parent" name="java.io.Serializable">
+              <h3>Inherited from <span class="extype" name="java.io.Serializable">Serializable</span></h3>
+            </div><div class="parent" name="scala.Product">
+              <h3>Inherited from <span class="extype" name="scala.Product">Product</span></h3>
+            </div><div class="parent" name="scala.Equals">
+              <h3>Inherited from <span class="extype" name="scala.Equals">Equals</span></h3>
+            </div><div class="parent" name="cakesolutions.docker.testkit.ObservedEvent">
+              <h3>Inherited from <a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span>]</h3>
+            </div><div class="parent" name="scala.AnyRef">
               <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
             </div><div class="parent" name="scala.Any">
               <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>

@@ -1,9 +1,9 @@
 <!DOCTYPE html >
 <html>
         <head>
-          <title>testkit - docker-compose-testkit 0.0.4 - cakesolutions.docker.testkit</title>
-          <meta name="description" content="testkit - docker - compose - testkit 0.0.4 - cakesolutions.docker.testkit" />
-          <meta name="keywords" content="testkit docker compose testkit 0.0.4 cakesolutions.docker.testkit" />
+          <title>testkit - docker-compose-testkit 0.0.5-SNAPSHOT - cakesolutions.docker.testkit</title>
+          <meta name="description" content="testkit - docker - compose - testkit 0.0.5 - SNAPSHOT - cakesolutions.docker.testkit" />
+          <meta name="keywords" content="testkit docker compose testkit 0.0.5 SNAPSHOT cakesolutions.docker.testkit" />
           <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
           
       <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
@@ -47,13 +47,35 @@
       </span>
       </h4>
       
-          <div id="comment" class="fullcommenttop"></div>
+          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div></div>
         
 
       <div id="mbrsel">
         <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
-        
-        
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By Inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="cakesolutions.docker.testkit"><span>testkit</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show All</span></li>
+            </ol>
+          </div>
         <div id="visbl">
             <span class="filtertype">Visibility</span>
             <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
@@ -66,7 +88,58 @@
 
         <div id="types" class="types members">
               <h3>Type Members</h3>
-              <ol><li name="cakesolutions.docker.testkit.DockerCompose" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+              <ol><li name="cakesolutions.docker.testkit.Accept" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AcceptextendsNotifywithProductwithSerializable"></a>
+      <a id="Accept:Accept"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Accept.html"><span class="name">Accept</span></a><span class="params">(<span name="failures">failures: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="result"> extends <a href="Notify.html" class="extype" name="cakesolutions.docker.testkit.Notify">Notify</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@AcceptextendsNotifywithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Action" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="Action[State]extendsAnyRef"></a>
+      <a id="Action[State]:Action[State]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">sealed </span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="Action.html"><span class="name">Action</span></a><span class="tparams">[<span name="State">State</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Action[State]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Behaviour" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Behaviour[State,Event]=PartialFunction[State,PartialFunction[cakesolutions.docker.testkit.package.ObservedEvent[Event],cakesolutions.docker.testkit.Action[State]]]"></a>
+      <a id="Behaviour[State,Event]:Behaviour[State,Event]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">type</span>
+      </span>
+      <span class="symbol">
+        <span class="name">Behaviour</span><span class="tparams">[<span name="State">State</span>, <span name="Event">Event</span>]</span><span class="result"> = <span class="extype" name="scala.PartialFunction">PartialFunction</span>[<span class="extype" name="cakesolutions.docker.testkit.Behaviour.State">State</span>, <span class="extype" name="scala.PartialFunction">PartialFunction</span>[<a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="cakesolutions.docker.testkit.Behaviour.Event">Event</span>], <a href="Action.html" class="extype" name="cakesolutions.docker.testkit.Action">Action</a>[<span class="extype" name="cakesolutions.docker.testkit.Behaviour.State">State</span>]]]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Behaviour[State,Event]=PartialFunction[State,PartialFunction[cakesolutions.docker.testkit.package.ObservedEvent[Event],cakesolutions.docker.testkit.Action[State]]]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.DockerCompose" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
       <a id="DockerComposeextendsAnyRef"></a>
       <a id="DockerCompose:DockerCompose"></a>
       <h4 class="signature">
@@ -117,19 +190,155 @@
       </a>
     </span>
       
-    </li><li name="cakesolutions.docker.testkit.TimedObservable" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
-      <a id="TimedObservable[Data]extendsAnyRef"></a>
-      <a id="TimedObservable[Data]:TimedObservable[Data]"></a>
+    </li><li name="cakesolutions.docker.testkit.Fail" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="FailextendsExceptionwithNotifywithProductwithSerializable"></a>
+      <a id="Fail:Fail"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Fail.html"><span class="name">Fail</span></a><span class="params">(<span name="reasons">reasons: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="result"> extends <span class="extype" name="scala.Exception">Exception</span> with <a href="Notify.html" class="extype" name="cakesolutions.docker.testkit.Notify">Notify</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@FailextendsExceptionwithNotifywithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Goto" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Goto[State]extendsAction[State]withProductwithSerializable"></a>
+      <a id="Goto[State]:Goto[State]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Goto.html"><span class="name">Goto</span></a><span class="tparams">[<span name="State">State</span>]</span><span class="params">(<span name="state">state: <span class="extype" name="cakesolutions.docker.testkit.Goto.State">State</span></span>, <span name="forMax">forMax: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="scala.concurrent.duration.FiniteDuration">FiniteDuration</span>] = <span class="symbol">None</span></span>, <span name="emit">emit: <span class="extype" name="scala.Option">Option</span>[<a href="Notify.html" class="extype" name="cakesolutions.docker.testkit.Notify">Notify</a>] = <span class="symbol">None</span></span>)</span><span class="result"> extends <a href="Action.html" class="extype" name="cakesolutions.docker.testkit.Action">Action</a>[<span class="extype" name="cakesolutions.docker.testkit.Goto.State">State</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Goto[State]extendsAction[State]withProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.LogicalOperators" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="LogicalOperators[Model]extendsAnyRef"></a>
+      <a id="LogicalOperators[Model]:LogicalOperators[Model]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">implicit </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="package$$LogicalOperators.html"><span class="name">LogicalOperators</span></a><span class="tparams">[<span name="Model">Model</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@LogicalOperators[Model]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Monitor" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="Monitor[IOState,Event]extendsProductwithSerializable"></a>
+      <a id="Monitor[IOState,Event]:Monitor[IOState,Event]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">sealed abstract </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Monitor.html"><span class="name">Monitor</span></a><span class="tparams">[<span name="IOState">IOState</span>, <span name="Event">Event</span>]</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Monitor[IOState,Event]extendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Notify" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="NotifyextendsAnyRef"></a>
+      <a id="Notify:Notify"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier">sealed </span>
         <span class="kind">trait</span>
       </span>
       <span class="symbol">
-        <a href="TimedObservable.html"><span class="name">TimedObservable</span></a><span class="tparams">[<span name="Data">Data</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+        <a href="Notify.html"><span class="name">Notify</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.package@TimedObservable[Data]extendsAnyRef" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@NotifyextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Observe" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Observe[Event]extendspackage.ObservedEvent[Event]withProductwithSerializable"></a>
+      <a id="Observe[Event]:Observe[Event]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="package$$Observe.html"><span class="name">Observe</span></a><span class="tparams">[<span name="Event">Event</span>]</span><span class="params">(<span name="event">event: <span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span></span>)</span><span class="result"> extends <a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="cakesolutions.docker.testkit.Observe.Event">Event</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Observe[Event]extendspackage.ObservedEvent[Event]withProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.ObservedEvent" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="ObservedEvent[+Event]extendsAnyRef"></a>
+      <a id="ObservedEvent[+Event]:ObservedEvent[Event]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">sealed </span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="package$$ObservedEvent.html"><span class="name">ObservedEvent</span></a><span class="tparams">[<span name="Event">+Event</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@ObservedEvent[+Event]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Stay" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Stay[State]extendsAction[State]withProductwithSerializable"></a>
+      <a id="Stay[State]:Stay[State]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Stay.html"><span class="name">Stay</span></a><span class="tparams">[<span name="State">State</span>]</span><span class="params">(<span name="emit">emit: <span class="extype" name="scala.Option">Option</span>[<a href="Notify.html" class="extype" name="cakesolutions.docker.testkit.Notify">Notify</a>] = <span class="symbol">None</span></span>)</span><span class="result"> extends <a href="Action.html" class="extype" name="cakesolutions.docker.testkit.Action">Action</a>[<span class="extype" name="cakesolutions.docker.testkit.Stay.State">State</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Stay[State]extendsAction[State]withProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Stop" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Stop[State]extendsAction[State]withProductwithSerializable"></a>
+      <a id="Stop[State]:Stop[State]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Stop.html"><span class="name">Stop</span></a><span class="tparams">[<span name="State">State</span>]</span><span class="params">(<span name="toEmit">toEmit: <a href="Notify.html" class="extype" name="cakesolutions.docker.testkit.Notify">Notify</a></span>)</span><span class="result"> extends <a href="Action.html" class="extype" name="cakesolutions.docker.testkit.Action">Action</a>[<span class="extype" name="cakesolutions.docker.testkit.Stop.State">State</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Stop[State]extendsAction[State]withProductwithSerializable" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -158,36 +367,70 @@
       </a>
     </span>
       
-    </li><li name="cakesolutions.docker.testkit.TimedObservable" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="TimedObservable"></a>
-      <a id="TimedObservable:TimedObservable"></a>
+    </li><li name="cakesolutions.docker.testkit.Goto" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Goto"></a>
+      <a id="Goto:Goto"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">object</span>
       </span>
       <span class="symbol">
-        <a href="TimedObservable$.html"><span class="name">TimedObservable</span></a>
+        <a href="Goto$.html"><span class="name">Goto</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.package@TimedObservable" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Goto" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       
-    </li><li name="cakesolutions.docker.testkit.automata" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="automata"></a>
-      <a id="automata:automata"></a>
+    </li><li name="cakesolutions.docker.testkit.Monitor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Monitor"></a>
+      <a id="Monitor:Monitor"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
-        <span class="kind">package</span>
+        <span class="kind">object</span>
       </span>
       <span class="symbol">
-        <a href="automata/package.html"><span class="name">automata</span></a>
+        <a href="Monitor$.html"><span class="name">Monitor</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.package@automata" title="Permalink" target="_top">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Monitor" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.StateTimeout" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateTimeout"></a>
+      <a id="StateTimeout:StateTimeout"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="package$$StateTimeout$.html"><span class="name">StateTimeout</span></a><span class="result"> extends <span class="extype" name="scala.Throwable">Throwable</span> with <a href="package$$ObservedEvent.html" class="extype" name="cakesolutions.docker.testkit.ObservedEvent">ObservedEvent</a>[<span class="extype" name="scala.Nothing">Nothing</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@StateTimeout" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="cakesolutions.docker.testkit.Stay" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Stay"></a>
+      <a id="Stay:Stay"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Stay$.html"><span class="name">Stay</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#cakesolutions.docker.testkit.package@Stay" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -222,23 +465,6 @@
       </span>
       </h4><span class="permalink">
       <a href="../../../index.html#cakesolutions.docker.testkit.package@logging" title="Permalink" target="_top">
-        <img src="../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
-    </li><li name="cakesolutions.docker.testkit.matchers" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="matchers"></a>
-      <a id="matchers:matchers"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">package</span>
-      </span>
-      <span class="symbol">
-        <a href="matchers/package.html"><span class="name">matchers</span></a>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../index.html#cakesolutions.docker.testkit.package@matchers" title="Permalink" target="_top">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
@@ -286,7 +512,11 @@
         </div>
 
         <div id="inheritedMembers">
-        
+        <div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
         
         </div>
 
