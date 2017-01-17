@@ -8,6 +8,7 @@ import java.time.{ZoneId, ZonedDateTime}
 import cakesolutions.docker.testkit.DockerComposeTestKit.{Driver, LogEvent, ProjectId}
 import cakesolutions.docker.testkit.logging.Logger
 import monix.execution.{Cancelable, Scheduler}
+import monix.reactive.observables.ConnectableObservable
 import monix.reactive.{Observable, OverflowStrategy}
 
 import scala.concurrent._
@@ -37,82 +38,93 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String, 
     }
   }
 
-  def logging(since: ZonedDateTime = null)(implicit scheduler: Scheduler): Observable[LogEvent] = {
-    Observable.create[LogEvent](OverflowStrategy.Unbounded) { subscriber =>
-      val cancelP = Promise[Unit]
+  object logging {
+    def cold(since: Option[ZonedDateTime] = None)(implicit scheduler: Scheduler): Observable[LogEvent] = {
+      Observable.create[LogEvent](OverflowStrategy.Unbounded) { subscriber =>
+        val cancelP = Promise[Unit]
 
-      try {
-        pool.execute(new Runnable {
-          def run(): Unit = {
-            blocking {
-              val sinceOption = Option(since).fold(Seq.empty[String])(ts => Seq("--since", ts.format(DateTimeFormatter.ISO_INSTANT)))
-              val process =
-                driver
-                  .docker
-                  .execute(Seq("logs", "-f") ++ sinceOption ++ Seq("-t", id): _*)
-                  .run(ProcessLogger(
-                    { out =>
-                      if (! cancelP.isCompleted) {
-                        toLogEvent(out) match {
-                          case Success(value: LogEvent) =>
-                            try {
-                              subscriber.onNext(value)
-                            } catch {
-                              case exn: Throwable =>
-                                exn.printStackTrace()
-                            }
-                          case Failure(exn) =>
-                            subscriber.onError(exn)
+        try {
+          pool.execute(new Runnable {
+            def run(): Unit = {
+              blocking {
+                val sinceOption = since.fold(Seq.empty[String])(ts => Seq("--since", ts.format(DateTimeFormatter.ISO_INSTANT)))
+                val process =
+                  driver
+                    .docker
+                    .execute(Seq("logs", "-f") ++ sinceOption ++ Seq("-t", id): _*)
+                    .run(ProcessLogger(
+                      { out =>
+                        if (! cancelP.isCompleted) {
+                          toLogEvent(out) match {
+                            case Success(value: LogEvent) =>
+                              try {
+                                subscriber.onNext(value)
+                              } catch {
+                                case exn: Throwable =>
+                                  exn.printStackTrace()
+                              }
+                            case Failure(exn) =>
+                              subscriber.onError(exn)
+                          }
+                        }
+                      },
+                      { err =>
+                        if (! cancelP.isCompleted) {
+                          toLogEvent(err) match {
+                            case Success(value: LogEvent) =>
+                              try {
+                                subscriber.onNext(value)
+                              } catch {
+                                case exn: Throwable =>
+                                  exn.printStackTrace()
+                              }
+                            case Failure(exn) =>
+                              subscriber.onError(exn)
+                          }
                         }
                       }
-                    },
-                    { err =>
-                      if (! cancelP.isCompleted) {
-                        toLogEvent(err) match {
-                          case Success(value: LogEvent) =>
-                            try {
-                              subscriber.onNext(value)
-                            } catch {
-                              case exn: Throwable =>
-                                exn.printStackTrace()
-                            }
-                          case Failure(exn) =>
-                            subscriber.onError(exn)
-                        }
-                      }
-                    }
-                  ))
+                    ))
 
-              cancelP.future.onComplete(_ => process.destroy())(pool)
+                cancelP.future.onComplete(_ => process.destroy())(pool)
 
-              // 143 = 128 + SIGTERM
-              val exit = process.exitValue()
-              if (exit != 0 && exit != 143) {
-                throw new RuntimeException(s"Logging exited with value $exit")
-              }
-              if (! cancelP.isCompleted) {
-                cancelP.success(())
-                subscriber.onComplete()
+                // 143 = 128 + SIGTERM
+                val exit = process.exitValue()
+                if (exit != 0 && exit != 143) {
+                  throw new RuntimeException(s"Logging exited with value $exit")
+                }
+                if (! cancelP.isCompleted) {
+                  cancelP.success(())
+                  subscriber.onComplete()
+                }
               }
             }
-          }
-        })
-      } catch {
-        case NonFatal(exn) =>
-          log.error("Log parsing error", exn)
-          if (! cancelP.isCompleted) {
-            cancelP.failure(exn)
-            subscriber.onError(exn)
-          }
-      }
+          })
+        } catch {
+          case NonFatal(exn) =>
+            log.error("Log parsing error", exn)
+            if (! cancelP.isCompleted) {
+              cancelP.failure(exn)
+              subscriber.onError(exn)
+            }
+        }
 
-      new Cancelable {
-        override def cancel(): Unit = {
-          if (! cancelP.isCompleted) {
-            cancelP.success(())
-            subscriber.onComplete()
+        new Cancelable {
+          override def cancel(): Unit = {
+            if (! cancelP.isCompleted) {
+              cancelP.success(())
+              subscriber.onComplete()
+            }
           }
         }
+      }
+    }
+
+    private var cachedObservable: Option[ConnectableObservable[LogEvent]] = None
+    def hot()(implicit scheduler: Scheduler): Observable[LogEvent] = {
+      cachedObservable.getOrElse {
+        cachedObservable = Some(cold().publish)
+        cachedObservable.foreach(_.connect())
+        cachedObservable.get
       }
     }
   }
@@ -236,62 +248,75 @@ final class DockerImage private[testkit] (projectId: ProjectId, val id: String, 
     }
   }
 
-  def events(filters: String*)(implicit scheduler: Scheduler): Observable[String] = {
-    Observable.create[String](OverflowStrategy.Unbounded) { subscriber =>
-      val cancelP = Promise[Unit]
+  object events {
+    def cold(filters: String*)(implicit scheduler: Scheduler): Observable[String] = {
+      Observable.create[String](OverflowStrategy.Unbounded) { subscriber =>
+        val cancelP = Promise[Unit]
 
-      try {
-        pool.execute(new Runnable {
-          def run(): Unit = {
-            blocking {
-              // TODO: parse line into a Events instance
-              val process =
-                driver
-                  .docker
-                  .execute("events" +: "--filter" +: s"container=$id" +: filters.flatMap(kv => Seq("--filter", kv)): _*)
-                  .run(ProcessLogger(
-                    { out =>
-                      if (! cancelP.isCompleted) {
-                        subscriber.onNext(out)
+        try {
+          pool.execute(new Runnable {
+            def run(): Unit = {
+              blocking {
+                // TODO: parse line into a Events instance
+                val process =
+                  driver
+                    .docker
+                    .execute("events" +: "--filter" +: s"container=$id" +: filters.flatMap(kv => Seq("--filter", kv)): _*)
+                    .run(ProcessLogger(
+                      { out =>
+                        if (! cancelP.isCompleted) {
+                          subscriber.onNext(out)
+                        }
+                      },
+                      { err =>
+                        if (! cancelP.isCompleted) {
+                          subscriber.onNext(err)
+                        }
                       }
-                    },
-                    { err =>
-                      if (! cancelP.isCompleted) {
-                        subscriber.onNext(err)
-                      }
-                    }
-                  ))
+                    ))
 
-              cancelP.future.onComplete(_ => process.destroy())(pool)
+                cancelP.future.onComplete(_ => process.destroy())(pool)
 
-              // 143 = 128 + SIGTERM
-              val exit = process.exitValue()
-              if (exit != 0 && exit != 143) {
-                throw new RuntimeException(s"Events exited with value $exit")
-              }
-              if (! cancelP.isCompleted) {
-                cancelP.success(())
-                subscriber.onComplete()
+                // 143 = 128 + SIGTERM
+                val exit = process.exitValue()
+                if (exit != 0 && exit != 143) {
+                  throw new RuntimeException(s"Events exited with value $exit")
+                }
+                if (! cancelP.isCompleted) {
+                  cancelP.success(())
+                  subscriber.onComplete()
+                }
               }
             }
-          }
-        })
-      } catch {
-        case NonFatal(exn) =>
-          log.error("Events processing error", exn)
-          if (! cancelP.isCompleted) {
-            cancelP.failure(exn)
-            subscriber.onError(exn)
-          }
-      }
+          })
+        } catch {
+          case NonFatal(exn) =>
+            log.error("Events processing error", exn)
+            if (! cancelP.isCompleted) {
+              cancelP.failure(exn)
+              subscriber.onError(exn)
+            }
+        }
 
-      new Cancelable {
-        override def cancel(): Unit = {
-          if (! cancelP.isCompleted) {
-            cancelP.success(())
-            subscriber.onComplete()
+        new Cancelable {
+          override def cancel(): Unit = {
+            if (! cancelP.isCompleted) {
+              cancelP.success(())
+              subscriber.onComplete()
+            }
           }
         }
+      }
+    }
+
+    private var cachedObservables: Map[Seq[String], ConnectableObservable[String]] = Map.empty
+    def hot(filters: String*)(implicit scheduler: Scheduler): Observable[String] = {
+      if (cachedObservables.isDefinedAt(filters)) {
+        cachedObservables(filters)
+      } else {
+        cachedObservables = cachedObservables + (filters -> cold(filters: _*).publish)
+        cachedObservables(filters).connect()
+        cachedObservables(filters)
       }
     }
   }

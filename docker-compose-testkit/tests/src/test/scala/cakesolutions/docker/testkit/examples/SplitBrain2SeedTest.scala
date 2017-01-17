@@ -1,58 +1,54 @@
 package cakesolutions.docker.testkit.examples
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus.Up
 import cakesolutions.BuildInfo
+import cakesolutions.docker.jmx.akka._
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
-import cakesolutions.docker.testkit.automata.MatchingAutomata
-import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher._
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
-import cakesolutions.docker.testkit.clients.AkkaClusterClient
+import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
+import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
+import cakesolutions.docker.{jmx => _, _}
+import cats.Now
 import monix.execution.Scheduler
-import org.scalatest.{BeforeAndAfterAll, Inside, Matchers, FreeSpec}
+import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
+import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object SplitBrain2SeedTest {
-  import AkkaClusterClient._
-
+  val akkaProtocol = "akka.tcp"
+  val akkaSystem = "TestCluster"
   val akkaPort = 2552
   val autoDown = 10.seconds
-  val leaderNode = "left-node-A"
+  val leftA = "left-node-A"
+  val leftB = "left-node-B"
+  val rightA = "right-node-A"
+  val rightB = "right-node-B"
+  val leaderNode = leftA
   val seedNode1 = leaderNode
-  val seedNode2 = "right-node-A"
+  val seedNode2 = rightA
   val version = BuildInfo.version
   val title = s"${Console.MAGENTA}${Console.UNDERLINED}"
   val highlight = s"${Console.WHITE}"
 
   def akkaNodeStarted(node: String): LogEvent => Boolean = { event =>
-    event.message.endsWith(s"Cluster Node [akka.tcp://TestCluster@$node:$akkaPort] - Started up successfully")
-  }
-
-  final case class AkkaNodeSensors(
-    log: TimedObservable.cold[LogEvent],
-    members: TimedObservable.cold[AkkaClusterState]
-  )
-  object AkkaSensors {
-    def apply(image: DockerImage)(implicit scheduler: Scheduler): AkkaNodeSensors = {
-      AkkaNodeSensors(
-        TimedObservable.cold(image.logging()),
-        TimedObservable.cold(image.members())
-      )
-    }
+    event.message.endsWith(s"Cluster Node [$akkaProtocol://$akkaSystem@$node:$akkaPort] - Started up successfully")
   }
 
   sealed trait MatchingState
   case object NodeStarted extends MatchingState
-  final case class MemberUpCount(left: Int, right: Int) extends MatchingState
+  final case class MemberUpCount(counts: Map[String, Int]) extends MatchingState
 }
 
 class SplitBrain2SeedTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
-  import SplitBrain2SeedTest._
   import DockerComposeTestKit._
-  import MatchingAutomata._
+  import SplitBrain2SeedTest._
 
   implicit val testDuration: FiniteDuration = 3.minutes
   implicit val actorSystem = ActorSystem("AutoDownSplitBrainDocker2SeedTest")
@@ -68,8 +64,8 @@ class SplitBrain2SeedTest extends FreeSpec with Matchers with Inside with Before
        |    environment:
        |      AKKA_HOST: $name
        |      AKKA_PORT: $akkaPort
-       |      CLUSTER_SEED_NODE_1: "akka.tcp://TestCluster@$seed1:$akkaPort"
-       |      CLUSTER_SEED_NODE_2: "akka.tcp://TestCluster@$seed2:$akkaPort"
+       |      CLUSTER_SEED_NODE_1: "$akkaProtocol://$akkaSystem@$seed1:$akkaPort"
+       |      CLUSTER_SEED_NODE_2: "$akkaProtocol://$akkaSystem@$seed2:$akkaPort"
        |    expose:
        |      - $akkaPort
        |    networks:
@@ -81,10 +77,10 @@ class SplitBrain2SeedTest extends FreeSpec with Matchers with Inside with Before
     s"""version: '2'
         |
         |services:
-        |  ${clusterNode("left-node-A", seedNode1, seedNode2, "left", "middle")}
-        |  ${clusterNode("left-node-B", seedNode1, seedNode2, "left", "middle")}
-        |  ${clusterNode("right-node-A", seedNode2, seedNode1, "right", "middle")}
-        |  ${clusterNode("right-node-B", seedNode2, seedNode1, "right", "middle")}
+        |  ${clusterNode(leftA, seedNode1, seedNode2, "left", "middle")}
+        |  ${clusterNode(leftB, seedNode1, seedNode2, "left", "middle")}
+        |  ${clusterNode(rightA, seedNode2, seedNode1, "right", "middle")}
+        |  ${clusterNode(rightB, seedNode2, seedNode1, "right", "middle")}
         |
         |networks:
         |  left:
@@ -94,52 +90,82 @@ class SplitBrain2SeedTest extends FreeSpec with Matchers with Inside with Before
   )
 
   val compose: DockerCompose = up("split-brain-2-seed", yaml)
-  lazy val leftNodeA: DockerImage = compose.service("left-node-A").docker.head
-  lazy val leftNodeB: DockerImage = compose.service("left-node-B").docker.head
-  lazy val rightNodeA: DockerImage = compose.service("right-node-A").docker.head
-  lazy val rightNodeB: DockerImage = compose.service("right-node-B").docker.head
+  val cluster = Map(
+    leftA -> compose.service(leftA).docker.head,
+    leftB -> compose.service(leftB).docker.head,
+    rightA -> compose.service(rightA).docker.head,
+    rightB -> compose.service(rightB).docker.head
+  )
 
   override def afterAll(): Unit = {
     compose.down()
     super.afterAll()
   }
 
-  s"${title}Distributed Akka cluster with inconsistent seed order" - {
-    def nodeStarted(node: String) = MatchingAutomata[NodeStarted.type, LogEvent](NodeStarted) {
+  type _validate[Model] = Validate[String, ?] |= Model
+  type SplitBrain2SeedModel = Fx.fx4[DockerAction, JmxAction, Validate[String, ?], ErrorOrOk]
+
+  def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+    for {
+      isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+      result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+    } yield result
+  }
+
+  def note[Model: _errorOrOk](msg: String)(implicit log: Logger): Eff[Model, Unit] = {
+    ErrorEffect.eval(Now(log.info(s"$highlight$msg")))
+  }
+
+  def observedClusterMembers(total: Int) = Monitor[MemberUpCount, (String, AkkaClusterState)](MemberUpCount(Map.empty)) {
+    case MemberUpCount(counts) => {
+      case Observe((name, AkkaClusterState(_, members, _))) =>
+        val countUp = members.count(_.status == Up)
+        if (countUp + (counts - name).values.sum < total) {
+          Goto(MemberUpCount((counts - name) + (name -> countUp)))
+        } else {
+          Stop(Accept())
+        }
+    }
+  }
+
+  def notInCluster(name: String): Monitor[Unit, AkkaClusterState] = {
+    val node = Address(akkaProtocol, akkaSystem, name, akkaPort)
+
+    Monitor(()) {
       case _ => {
-        case event: LogEvent if akkaNodeStarted(node)(event) =>
+        case Observe(AkkaClusterState(_, members, _)) if members.exists(_.address == node) =>
+          Stop(Fail(s"$name was observed as a member of the cluster"))
+        case Observe(AkkaClusterState(_, members, _)) =>
+          Stop(Accept())
+      }
+    }
+  }
+
+  s"${title}Distributed Akka cluster with inconsistent seed order" - {
+    def nodeStarted(node: String) = Monitor[NodeStarted.type, LogEvent](NodeStarted) {
+      case _ => {
+        case Observe(event: LogEvent) if akkaNodeStarted(node)(event) =>
           Stop(Accept())
       }
     }
 
-    def observedClusterMembers(total: Int) = MatchingAutomata[MemberUpCount, Either[AkkaClusterState, AkkaClusterState]](MemberUpCount(0, 0)) {
-      case MemberUpCount(left, right) => {
-        case Left(AkkaClusterState(_, members, _)) =>
-          val leftUp = members.count(_.status == Up)
-          if (leftUp + right < total) {
-            Goto(MemberUpCount(leftUp, right))
-          } else {
-            Stop(Accept())
-          }
-        case Right(AkkaClusterState(_, members, _)) =>
-          val rightUp = members.count(_.status == Up)
-          if (left + rightUp < total) {
-            Goto(MemberUpCount(left, rightUp))
-          } else {
-            Stop(Accept())
-          }
-      }
-    }
-
     s"${title}should split brain into 2 clusters" in {
-      val testSimulation = for {
-        _ <- (nodeStarted(seedNode1).run(AkkaSensors(leftNodeA).log) && nodeStarted(seedNode2).run(AkkaSensors(rightNodeA).log)).outcome
-        _ = note(s"${highlight}$seedNode1 and $seedNode2 cluster seeds are up")
-        _ <- observedClusterMembers(4).run(AkkaSensors(leftNodeA).members.map(Left(_)), AkkaSensors(rightNodeA).members.map(Right(_))).outcome
-        _ = note(s"${highlight}cluster split brains into 2 clusters")
+      def expt[Model: _docker: _jmx: _validate :_errorOrOk]: Eff[Model, Notify] = for {
+        obs1 <- docker.logs(nodeStarted(seedNode1))(Observable(_))(leftA) && docker.logs(nodeStarted(seedNode2))(Observable(_))(rightA)
+        _ <- check(isAccepting(obs1))
+        _ <- note(s"cluster seeds $seedNode1 and $seedNode2 are up")
+        obs2 <- taggedJmx(observedClusterMembers(4))(leftA, rightA)
+        _ <- check(isAccepting(obs2))
+        _ <- note("all cluster nodes are up")
+        obs3 <- jmx(notInCluster(rightA))(leftA) && jmx(notInCluster(leftA))(rightA)
+        _ <- check(isAccepting(obs3))
+        _ <- note("cluster split brains into 2 clusters")
       } yield Accept()
 
-      testSimulation should observe(Accept())
+      inside(expt[SplitBrain2SeedModel].runDocker(cluster).runJmx(cluster).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
   }
 }

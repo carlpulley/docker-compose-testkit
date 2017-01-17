@@ -4,78 +4,43 @@ package cakesolutions.docker.testkit.examples
 
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus
-import akka.cluster.MemberStatus.Up
 import cakesolutions.BuildInfo
-import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
-import cakesolutions.docker.testkit.automata.MatchingAutomata
-import cakesolutions.docker.testkit.clients.AkkaClusterClient
+import cakesolutions.docker.jmx.akka._
+import cakesolutions.docker.jvm._
+import cakesolutions.docker.network.default.linux._
+import cakesolutions.docker.testkit.DockerComposeTestKit.DockerComposeYaml
+import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
-import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher._
+import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
 import cakesolutions.docker.testkit.network.ImpairmentSpec.Loss
-import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import cakesolutions.docker.{jmx => _, jvm => _, _}
+import cats.Now
 import monix.execution.Scheduler
+import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Inside, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object AutoDownSplitBrainDockerTest {
-  import AkkaClusterClient._
-
+  val akkaProtocol = "akka.tcp"
+  val akkaSystem = "TestCluster"
   val akkaPort = 2552
   val autoDown = 10.seconds
-  val leaderNode = "left-node-A"
+  val leftA = "left-node-A"
+  val leftB = "left-node-B"
+  val rightA = "right-node-A"
+  val rightB = "right-node-B"
+  val leaderNode = leftA
   val version = BuildInfo.version
-  val title = s"${Console.MAGENTA}${Console.UNDERLINED}"
-  val highlight = s"${Console.WHITE}"
-
-  def clusterJoin(node: String): LogEvent => Boolean = { event =>
-    event.message.endsWith(s"Leader is moving node [akka.tcp://TestCluster@$node:$akkaPort] to [Up]")
-  }
-
-  val welcomeMessage: LogEvent => Boolean = { event =>
-    event.message.endsWith(s"Welcome from [akka.tcp://TestCluster@$leaderNode:$akkaPort]")
-  }
-
-  final case class AkkaNodeSensors(
-    log: TimedObservable.hot[LogEvent],
-    available: TimedObservable.cold[Boolean],
-    singleton: TimedObservable.cold[Boolean],
-    leader: TimedObservable.cold[Address],
-    members: TimedObservable.cold[AkkaClusterState],
-    status: TimedObservable.cold[MemberStatus],
-    unreachable: TimedObservable.cold[List[Address]]
-  )
-  object AkkaSensors {
-    def apply(image: DockerImage)(implicit scheduler: Scheduler): AkkaNodeSensors = {
-      AkkaNodeSensors(
-        TimedObservable.hot(image.logging().publish),
-        TimedObservable.cold(image.isAvailable()),
-        TimedObservable.cold(image.isSingleton()),
-        TimedObservable.cold(image.leader()),
-        TimedObservable.cold(image.members()),
-        TimedObservable.cold(image.status()),
-        TimedObservable.cold(image.unreachable())
-      )
-    }
-  }
-
-  sealed trait MatchingState
-  case object ClusterMemberCheck extends MatchingState
-  case object StableCluster extends MatchingState
-  case object WaitForLeaderElection extends MatchingState
-  case object WaitForUnreachable extends MatchingState
-  case object WaitToBeAvailable extends MatchingState
-  case object WaitToJoinCluster extends MatchingState
-  final case class ReceiveWelcomeMessages(images: Set[String]) extends MatchingState
 }
 
 class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with DockerComposeTestKit with TestLogger {
   import AutoDownSplitBrainDockerTest._
-  import DockerComposeProtocol.Linux._
-  import DockerComposeTestKit._
-  import MatchingAutomata._
 
   implicit val testDuration: FiniteDuration = 3.minutes
   implicit val actorSystem = ActorSystem("AutoDownSplitBrainDockerTest")
@@ -95,7 +60,7 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
           "AKKA_HOST" -> name,
           "AKKA_PORT" -> akkaPort,
           "CLUSTER_AUTO_DOWN" -> autoDown,
-          "CLUSTER_SEED_NODE_1" -> s"akka.tcp://TestCluster@$leaderNode:$akkaPort"
+          "CLUSTER_SEED_NODE_1" -> s"$akkaProtocol://$akkaSystem@$leaderNode:$akkaPort"
         ),
         "expose" -> List(akkaPort),
         "networks" -> List(network1, network2)
@@ -106,10 +71,10 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     Map(
       "version" -> "2",
       "services" -> Map(
-        clusterNode("left-node-A", "left", "middle"),
-        clusterNode("left-node-B", "left", "middle"),
-        clusterNode("right-node-A", "right", "middle"),
-        clusterNode("right-node-B", "right", "middle")
+        clusterNode(leftA, "left", "middle"),
+        clusterNode(leftB, "left", "middle"),
+        clusterNode(rightA, "right", "middle"),
+        clusterNode(rightB, "right", "middle")
       ),
       "networks" -> Map(
         "left" -> Map.empty,
@@ -119,16 +84,13 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     )
   )
 
-  val compose: DockerCompose = up("autodown-split-brain", yaml)
-  val leftNodeA: DockerImage = compose.service("left-node-A").docker.head
-  val leftNodeB: DockerImage = compose.service("left-node-B").docker.head
-  val rightNodeA: DockerImage = compose.service("right-node-A").docker.head
-  val rightNodeB: DockerImage = compose.service("right-node-B").docker.head
-  val clusterSensors = Map(
-    "left.A" -> AkkaSensors(leftNodeA),
-    "left.B" -> AkkaSensors(leftNodeB),
-    "right.A" -> AkkaSensors(rightNodeA),
-    "right.B" -> AkkaSensors(rightNodeB)
+  implicit val compose: DockerCompose = up("autodown-split-brain", yaml)
+
+  val cluster = Map(
+    leftA -> compose.service(leftA).docker.head,
+    leftB -> compose.service(leftB).docker.head,
+    rightA -> compose.service(rightA).docker.head,
+    rightB -> compose.service(rightB).docker.head
   )
 
   override def afterAll(): Unit = {
@@ -136,112 +98,96 @@ class AutoDownSplitBrainDockerTest extends FreeSpec with Matchers with Inside wi
     super.afterAll()
   }
 
-  s"${title}Distributed Akka cluster with auto-downing" - {
-    val available = MatchingAutomata[WaitToBeAvailable.type, Boolean](WaitToBeAvailable) {
-      case _ => {
-        case true =>
-          Stop(Accept())
+  s"${Console.MAGENTA}${Console.UNDERLINED}Akka cluster with auto-downing split brains when network is partitioned" in {
+    type _validate[Model] = Validate[String, ?] |= Model
+    type ExperimentalModel = Fx.fx5[JvmGCAction, JmxAction, NetworkAction, Validate[String, ?], ErrorOrOk]
+
+    /**
+     * State `false` iff we've not yet observed a formed cluster. Cluster is formed iff expected nodes are `Up` and are
+     * all reachable. Monitor succeeds iff the cluster now remains formed for 3 seconds.
+     *
+     * @param names hostnames of cluster members
+     * @return
+     */
+    def inCluster(names: String*): Monitor[Boolean, AkkaClusterState] = {
+      val nodes = names.map { nm =>
+        Address(akkaProtocol, akkaSystem, nm, akkaPort)
+      }
+
+      Monitor(false) {
+        case false => {
+          case Observe(AkkaClusterState(_, members, unreachable)) if unreachable.isEmpty && nodes.forall(node => members.filter(_.status == MemberStatus.Up).exists(_.address == node)) =>
+            Goto(true, 3.seconds)
+        }
+        case true => {
+          case Observe(AkkaClusterState(_, _, unreachable)) if unreachable.nonEmpty =>
+            Stop(Fail())
+          case Observe(AkkaClusterState(_, members, _)) if nodes.exists(node => members.filter(_.status == MemberStatus.Up).forall(_.address != node)) =>
+            Stop(Fail())
+          case StateTimeout =>
+            Stop(Accept())
+        }
       }
     }
 
-    val leader = MatchingAutomata[WaitForLeaderElection.type, Address](WaitForLeaderElection) {
-      case _ => {
-        case addr: Address if addr.host.contains("left-node-A") =>
-          Stop(Accept())
-      }
-    }
+    /**
+     * Monitor succeeds iff we eventually observe node address as being reachable.
+     *
+     * @param name hostname of cluster member
+     * @return
+     */
+    def unreachable(name: String): Monitor[Unit, AkkaClusterState] = {
+      val node = Address(akkaProtocol, akkaSystem, name, akkaPort)
 
-    val stableCluster = MatchingAutomata[StableCluster.type, List[Address]](StableCluster, 3.seconds) {
-      case _ => {
-        case addrs: List[Address @unchecked] if addrs.nonEmpty =>
-          Stop(Fail(s"Detected $addrs as unreachable"))
-        case StateTimeout =>
-          Stop(Accept())
-      }
-    }
-
-    def clusterMembers(nodes: String*) = MatchingAutomata[ClusterMemberCheck.type, AkkaClusterState](ClusterMemberCheck) {
-      case _ => {
-        case AkkaClusterState(_, members, unreachable) if unreachable.isEmpty && members.filter(_.status == Up).flatMap(_.address.host) == Set(nodes: _*) =>
-          Stop(Accept())
-      }
-    }
-
-    def nodeUnreachable(node: String) = MatchingAutomata[WaitForUnreachable.type, List[Address]](WaitForUnreachable) {
-      case _ => {
-        case addrs: List[Address @unchecked] if addrs.exists(_.host.contains(node)) =>
-          Stop(Accept())
-      }
-    }
-
-    s"${title}should auto-seed and form a stable cluster" in {
-      val superSeed = MatchingAutomata[WaitToJoinCluster.type, LogEvent](WaitToJoinCluster) {
+      Monitor(()) {
         case _ => {
-          case event: LogEvent if clusterJoin("left-node-A")(event) =>
+          case Observe(AkkaClusterState(_, _, unreachable)) if unreachable.exists(_.node == node) =>
             Stop(Accept())
         }
       }
-
-      val welcome = MatchingAutomata[ReceiveWelcomeMessages, LogEvent](ReceiveWelcomeMessages(Set.empty[String])) {
-        case ReceiveWelcomeMessages(members) => {
-          case data @ LogEvent(_, image, _) if members.size == 2 && welcomeMessage(data) && ! members.contains(image) =>
-            Stop(Accept())
-          case data @ LogEvent(_, image, _) if welcomeMessage(data) =>
-            Goto(ReceiveWelcomeMessages(members + image))
-        }
-      }
-
-      for (node <- clusterSensors.keys) {
-        clusterSensors(node).log.observable.connect()
-      }
-
-      val testSimulation = for {
-        _ <- (superSeed.run(clusterSensors("left.A").log) && welcome.run(clusterSensors("left.B").log, clusterSensors("right.A").log, clusterSensors("right.B").log)).outcome
-        _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
-        _ = note(s"${highlight}cluster formed")
-        _ <- (available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
-        _ = note(s"${highlight}node left.A is an available leader")
-        _ <- stableCluster.run(clusterSensors("left.A").unreachable).outcome
-        _ = note(s"${highlight}cluster stable")
-      } yield Accept()
-
-      testSimulation should observe(Accept())
     }
 
-
-    s"${title}Short GC pause should not split-brain cluster" in {
-      val testSimulation = for {
-        _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
-        _ <- (stableCluster.run(clusterSensors("left.A").unreachable) && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
-        _ = note(s"${highlight}cluster stable and left.A is an available leader")
-        _ = rightNodeA.pause()
-        _ = note(s"${highlight}right.A GC pause starts")
-        _ <- nodeUnreachable("right-node-A").run(clusterSensors("left.A").unreachable).outcome
-        _ = note(s"${highlight}right.A is unreachable")
-        _ = rightNodeA.unpause()
-        _ = note(s"${highlight}right.A GC pause ends")
-        _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
-        _ <- stableCluster.run(clusterSensors("left.A").unreachable).outcome
-        _ = note(s"${highlight}cluster stabilized with right.A as a member")
-      } yield Accept()
-
-      testSimulation should observe(Accept())
+    def checkDistinct[Model: _validate](nodes: String*): Eff[Model, Unit] = {
+      validateCheck[Model, String](nodes == nodes.distinct, s"$nodes should be distinct addresses")
     }
 
-    s"${title}network partition causes cluster to split-brain" in {
-      val testSimulation = for {
-        _ <- clusterMembers("left-node-A", "left-node-B", "right-node-A", "right-node-B").run(clusterSensors("left.A").members).outcome
-        _ <- (stableCluster.run(clusterSensors("left.A").unreachable) && available.run(clusterSensors("left.A").available) && leader.run(clusterSensors("left.A").leader)).outcome
-        _ = note(s"${highlight}cluster stable and left.A is an available leader")
-        _ = compose.network("middle").impair(Loss("100%"))
-        _ = note(s"${highlight}partition into left and right networks")
-        _ <- (clusterMembers("left-node-A", "left-node-B").run(clusterSensors("left.A").members) && clusterMembers("right-node-A").run(clusterSensors("right.A").members) && clusterMembers("right-node-B").run(clusterSensors("right.B").members)).outcome
-        _ = note(s"${highlight}cluster split brains into 3 clusters: left.A & left.B; right.A; right.B")
-      } yield Accept()
-
-      testSimulation should observe(Accept())
+    def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+      for {
+        isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+        result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+      } yield result
     }
 
+    def note[Model: _errorOrOk](msg: String)(implicit log: Logger): Eff[Model, Unit] = {
+      ErrorEffect.eval(Now(log.info(s"${Console.WHITE}$msg")))
+    }
+
+    def experiment[Model: _jvm: _jmx: _network: _validate: _errorOrOk](implicit compose: DockerCompose, system: ActorSystem, scheduler: Scheduler, log: Logger): Eff[Model, Notify] =
+      for {
+        _ <- checkDistinct(leftA, leftB, rightA, rightB)
+        obs1 <- jmx(inCluster(leftA, leftB, rightA, rightB))(leftA)
+        _ <- check(isAccepting(obs1))
+        _ <- note("cluster stable with members: left.A & left.B & right.A & right.B")
+        _ <- jvmGC(JvmGCStart)(rightA)
+        _ <- note("right.A GC pause starts")
+        obs2 <- jmx(unreachable(rightA))(leftA)
+        _ <- check(isAccepting(obs2))
+        _ <- note("left.A sees right.A as unreachable")
+        _ <- jvmGC(JvmGCEnd)(rightA)
+        _ <- note("right.A GC pause ends")
+        obs3 <- jmx(inCluster(leftA, leftB, rightA, rightB))(leftA)
+        _ <- check(isAccepting(obs3))
+        _ <- note("cluster stable and right.A is allowed to rejoin")
+        _ <- impair(Loss("100%"))("middle")
+        _ <- note("partition into left and right networks")
+        obs4 <- jmx(inCluster(leftA, leftB))(leftA) && jmx(inCluster(leftA, leftB))(leftB) && jmx(inCluster(rightA))(rightA) && jmx(inCluster(rightB))(rightB)
+        _ <- check(isAccepting(obs4))
+        _ <- note("cluster split brains into 3 clusters: left.A & left.B; right.A; right.B")
+      } yield Accept()
+
+    inside(experiment[ExperimentalModel].runJvm(cluster).runJmx(cluster).runNetwork.runError.runNel) {
+      case Pure(Right(Right(Accept())), _) =>
+        assert(true)
+    }
   }
-
 }

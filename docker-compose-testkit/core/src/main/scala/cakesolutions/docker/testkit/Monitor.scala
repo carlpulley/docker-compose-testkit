@@ -112,6 +112,10 @@ sealed abstract case class Monitor[IOState: ClassTag, Event] private(initial: IO
       OneForOneStrategy()(stoppingDecider)
     }
 
+    private[this] var state: State = State(initial, timeout, callback(timeout))
+
+    override protected def getState = state
+
     private val fsmObs: Observer[Event] = new Observer[Event] {
       override def onNext(elem: Event): Future[Ack] = {
         log.debug(s"FSM Input Observer: onNext($elem)")
@@ -121,16 +125,15 @@ sealed abstract case class Monitor[IOState: ClassTag, Event] private(initial: IO
 
       override def onError(exn: Throwable): Unit = {
         log.debug(s"FSM Input Observer: onError($exn)")
-        stop(Some(exn))
+        self ! exn
       }
 
       override def onComplete(): Unit = {
-        log.debug("FSM Input Observer: onComplete()")
+        log.debug(s"FSM Input Observer: onComplete()")
         if (state.timeout.isDefined) {
-          stop(Some(StateTimeout))
-        } else {
-          stop(Some(Shutdown))
+          self ! StateTimeout
         }
+        self ! Shutdown
       }
     }
     private val outputSubscription: Cancelable = sensor.subscribe(fsmObs)
@@ -149,10 +152,6 @@ sealed abstract case class Monitor[IOState: ClassTag, Event] private(initial: IO
         }
       }
     }
-
-    private[this] var state: State = State(initial, timeout, callback(timeout))
-
-    override protected def getState = state
 
     def receive: Receive = {
       case event: ObservedEvent[Event] =>
@@ -181,6 +180,10 @@ sealed abstract case class Monitor[IOState: ClassTag, Event] private(initial: IO
             sender() ! Ack.Stop
             stop(Some(UnexpectedException(exn, event)))
         }
+      case Shutdown =>
+        stop(Some(Shutdown))
+      case exn: Throwable =>
+        stop(Some(exn))
     }
 
     private def callback(timeout: Option[FiniteDuration]): Option[Cancelable] = {

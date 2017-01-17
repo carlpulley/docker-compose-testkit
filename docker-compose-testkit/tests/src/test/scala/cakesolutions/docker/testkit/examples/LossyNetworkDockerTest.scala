@@ -6,16 +6,22 @@ import java.time.ZonedDateTime
 import java.util.NoSuchElementException
 
 import akka.actor.ActorSystem
-import cakesolutions.docker.testkit.automata.MatchingAutomata
-import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher._
+import cakesolutions.docker._
+import cakesolutions.docker.network.default.linux._
+import cakesolutions.docker.testkit._
+import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
 import cakesolutions.docker.testkit.network.ImpairmentSpec.{Delay, Loss}
-import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import cats.Now
 import monix.execution.Scheduler
+import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object LossyNetworkDockerTest {
@@ -52,10 +58,8 @@ object LossyNetworkDockerTest {
 }
 
 class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfterAll with Eventually with DockerComposeTestKit with TestLogger {
-  import DockerComposeProtocol.Linux._
   import DockerComposeTestKit._
   import LossyNetworkDockerTest._
-  import MatchingAutomata._
 
   implicit val testDuration = 5.minutes
   implicit val actorSystem = ActorSystem("LossyNetworkDockerTest")
@@ -88,7 +92,7 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     """.stripMargin
   )
 
-  var compose: DockerCompose = _
+  implicit var compose: DockerCompose = _
   var server: DockerImage = _
   var client: DockerImage = _
 
@@ -102,6 +106,20 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
   override def afterAll(): Unit = {
     compose.down()
     super.afterAll()
+  }
+
+  type _validate[Model] = Validate[String, ?] |= Model
+  type LossyNetworkModel = Fx.fx4[DockerAction, NetworkAction, Validate[String, ?], ErrorOrOk]
+
+  def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+    for {
+      isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+      result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+    } yield result
+  }
+
+  def note[Model: _errorOrOk](msg: String)(implicit log: Logger): Eff[Model, Unit] = {
+    ErrorEffect.eval(Now(log.info(s"$highlight$msg")))
   }
 
   def check(window: Vector[Ping], assertion: Double => FiniteDuration => Notify): Notify = {
@@ -122,14 +140,14 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     assertion(meanSeqDiff)(meanTime)
   }
 
-  def fsm(assertion: Double => FiniteDuration => Notify)(implicit dataSize: Int): MatchingAutomata[Vector[Ping], Ping] = {
-    MatchingAutomata[Vector[Ping], Ping](Vector.empty) {
+  def fsm(assertion: Double => FiniteDuration => Notify)(implicit dataSize: Int): Monitor[Vector[Ping], Ping] = {
+    Monitor[Vector[Ping], Ping](Vector.empty) {
       case data if data.length < dataSize => {
-        case event: Ping =>
+        case Observe(event: Ping) =>
           Goto(data :+ event)
       }
       case data => {
-        case event: Ping =>
+        case Observe(event: Ping) =>
           Stop(check(data :+ event, assertion))
       }
     }
@@ -150,18 +168,15 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
     s"${title}Networked containers with hot ping observable" in {
       implicit val dataSize = 19
 
-      val pingSource = TimedObservable.hot(
-        client.logging().map(Ping.parse).collect { case Some(ping) => ping }.publish
-      )
+      val pingSource = (event: LogEvent) =>
+        Observable(event).map(Ping.parse).collect { case Some(ping) => ping }
 
       val warmup = fsm { meanSeqDiff => meanTime =>
-        note(s"${highlight}warmup")
         Accept()
       }
 
       val normal = fsm { meanSeqDiff => meanTime =>
         if (0 <= meanSeqDiff && meanSeqDiff <= 1.5 && meanTime <= 500000.nanosecond) {
-          note(s"${highlight}normal network")
           Accept()
         } else {
           Fail(s"$meanSeqDiff and $meanTime")
@@ -170,7 +185,6 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
       val delayed = fsm { meanSeqDiff => meanTime =>
         if (100.milliseconds <= meanTime) {
-          note(s"${highlight}delayed network")
           Accept()
         } else {
           Fail(s"$meanSeqDiff and $meanTime")
@@ -179,27 +193,37 @@ class LossyNetworkDockerTest extends FreeSpec with Matchers with Inside with Bef
 
       val lossy = fsm { meanSeqDiff => meanTime =>
         if (2 <= meanSeqDiff) {
-          note(s"${highlight}lossy network")
           Accept()
         } else {
           Fail(s"$meanSeqDiff and $meanTime")
         }
       }
 
-      pingSource.observable.connect()
-
-      val testSimulation = for {
-        _ <- warmup.run(pingSource).outcome
-        _ <- normal.run(pingSource).outcome
-        _ = compose.network("common").impair(Delay())
-        _ <- delayed.run(pingSource).outcome
-        _ = compose.network("common").impair(Loss("random 50%"))
-        _ <- lossy.run(pingSource).outcome
-        _ = compose.network("common").impair()
-        _ <- normal.run(pingSource).outcome
+      def expt[Model: _docker: _network: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs1 <- docker.logs.hot(warmup)(pingSource)("client")
+        _ <- check(isAccepting(obs1))
+        _ <- note("warmup")
+        obs2 <- docker.logs.hot(normal)(pingSource)("client")
+        _ <- check(isAccepting(obs2))
+        _ <- note("normal network")
+        _ <- impair(Delay())("common")
+        obs3 <- docker.logs.hot(delayed)(pingSource)("client")
+        _ <- check(isAccepting(obs3))
+        _ <- note("delayed network")
+        _ <- impair(Loss("random 50%"))("common")
+        obs4 <- docker.logs.hot(lossy)(pingSource)("client")
+        _ <- check(isAccepting(obs4))
+        _ <- note("lossy network")
+        _ <- impair()("common")
+        obs5 <- docker.logs.hot(normal)(pingSource)("client")
+        _ <- check(isAccepting(obs5))
+        _ <- note("normal network")
       } yield Accept()
 
-      testSimulation should observe(Accept())
+      inside(expt[LossyNetworkModel].runDocker(Map("server" -> server, "client" -> client)).runNetwork.runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
   }
 

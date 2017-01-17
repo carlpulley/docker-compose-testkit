@@ -3,7 +3,7 @@
 package cakesolutions.docker.network.default
 
 import cakesolutions.docker.testkit.DockerCompose
-import cakesolutions.docker.testkit.network.ImpairmentSpec.Loss
+import cakesolutions.docker.testkit.network.ImpairmentSpec.Impairment
 import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
 import cats.Now
 import org.atnos.eff.ErrorEffect._
@@ -14,12 +14,12 @@ package object linux {
   import DockerComposeProtocol.Linux._
 
   sealed trait NetworkAction[Result]
-  final case class PartitionNetwork(name: String) extends NetworkAction[Unit]
+  final case class ImpairNetwork(name: String, others: Seq[String], spec: Impairment*) extends NetworkAction[Unit]
 
   type _network[Model] = NetworkAction |= Model
 
-  def partition[Model: _network](name: String): Eff[Model, Unit] =
-    Eff.send[NetworkAction, Model, Unit](PartitionNetwork(name))
+  def impair[Model: _network](spec: Impairment*)(name: String, others: String*): Eff[Model, Unit] =
+    Eff.send[NetworkAction, Model, Unit](ImpairNetwork(name, others, spec: _*))
 
   implicit class NetworkingRun[R, A](effects: Eff[R, A]) {
     def runNetwork[U](
@@ -30,9 +30,9 @@ package object linux {
       translate(effects)(new Translate[NetworkAction, U] {
         def apply[X](net: NetworkAction[X]): Eff[U, X] = {
           net match {
-            case PartitionNetwork(name) =>
+            case ImpairNetwork(name, others, spec @ _*) =>
               ErrorEffect.eval(Now {
-                compose.network(name).impair(Loss("100%")).asInstanceOf[X]
+                (name +: others).foreach(nm => compose.network(nm).impair(spec: _*)).asInstanceOf[X]
               })
           }
         }

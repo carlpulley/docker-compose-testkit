@@ -45,15 +45,8 @@ package object testkit {
       }
     }
 
-    def not(): Eff[Model, Observable[Notify]] = {
-      left.map(
-        _.map {
-          case Accept(failures@_*) =>
-            Fail(failures: _*)
-          case Fail(reasons@_*) =>
-            Accept(reasons: _*)
-        }
-      )
+    def invert: Eff[Model, Observable[Notify]] = {
+      left.map(_.map(_.invert))
     }
   }
 }

@@ -3,19 +3,23 @@
 package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
-import cakesolutions.docker.testkit.automata.MatchingAutomata
+import cakesolutions.docker._
+import cakesolutions.docker.testkit.DockerComposeTestKit.{DockerComposeString, LogEvent}
+import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import cats.Now
 import monix.execution.Scheduler
-import org.scalatest.{BeforeAndAfter, FreeSpec, Matchers}
+import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
+import org.scalatest.{BeforeAndAfter, FreeSpec, Inside, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter with DockerComposeTestKit with TestLogger {
-  import DockerComposeTestKit._
-  import MatchingAutomata._
-  import ObservableMatcher._
+class HelloWorldDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfter with DockerComposeTestKit with TestLogger {
 
   implicit val testDuration = 60.seconds
   implicit val actorSystem = ActorSystem("HelloWorldDockerTest")
@@ -42,33 +46,57 @@ class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter wi
     compose.down()
   }
 
+  type _validate[Model] = Validate[String, ?] |= Model
+  type HelloWorldModel = Fx.fx3[DockerAction, Validate[String, ?], ErrorOrOk]
+
+  def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+    for {
+      isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+      result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+    } yield result
+  }
+
   "Hello-world Docker Container" - {
     "expected greeting" in {
-      val fsm = MatchingAutomata[Unit, LogEvent](()) {
+      val fsm = Monitor[Unit, LogEvent](()) {
         case _ => {
-          case event: LogEvent if event.message.startsWith("Hello from Docker") =>
+          case Observe(event: LogEvent) if event.message.startsWith("Hello from Docker") =>
             Stop(Accept())
         }
       }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs <- docker.logs(fsm)(Observable(_))("basic")
+        _ <- check(isAccepting(obs))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
+      inside(expt[HelloWorldModel].runDocker(Map("basic" -> helloworld)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
 
     "unexpected log line at start" in {
-      val fsm = MatchingAutomata[Unit, LogEvent]((), 3.seconds) {
+      val fsm = Monitor[Unit, LogEvent]((), 3.seconds) {
         case _ => {
           case StateTimeout =>
             Stop(Accept())
         }
       }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs <- docker.logs(fsm)(Observable(_))("basic")
+        _ <- check(isAccepting(obs))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
+      inside(expt[HelloWorldModel].runDocker(Map("basic" -> helloworld)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
 
     "unexpected log line on entering a state" in {
-      val fsm = MatchingAutomata[Int, LogEvent](0) {
+      val fsm = Monitor[Int, LogEvent](0) {
         case 0 => {
-          case event: LogEvent if event.message.startsWith("Hello from Docker") =>
+          case Observe(event: LogEvent) if event.message.startsWith("Hello from Docker") =>
             Goto(1, 3.seconds)
         }
         case 1 => {
@@ -76,31 +104,45 @@ class HelloWorldDockerTest extends FreeSpec with Matchers with BeforeAndAfter wi
             Stop(Accept())
         }
       }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs <- docker.logs(fsm)(Observable(_))("basic")
+        _ <- check(isAccepting(obs))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
+      inside(expt[HelloWorldModel].runDocker(Map("basic" -> helloworld)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
 
     "multiple consecutive logging lines" in {
-      val fsm = MatchingAutomata[Int, LogEvent](1) {
+      val fsm = Monitor[Int, LogEvent](1) {
         case 1 => {
-          case event: LogEvent if event.message.startsWith("1. The Docker client contacted the Docker daemon") =>
+          case Observe(event: LogEvent) if event.message.startsWith("1. The Docker client contacted the Docker daemon") =>
             Goto(2)
         }
         case 2 => {
-          case event: LogEvent if event.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image") =>
+          case Observe(event: LogEvent) if event.message.startsWith("2. The Docker daemon pulled the \"hello-world\" image") =>
             Goto(3)
         }
         case 3 => {
-          case event: LogEvent if event.message.startsWith("3. The Docker daemon created a new container") =>
+          case Observe(event: LogEvent) if event.message.startsWith("3. The Docker daemon created a new container") =>
             Goto(4)
         }
         case 4 => {
-          case event: LogEvent if event.message.startsWith("4. The Docker daemon streamed that output to the Docker client") =>
+          case Observe(event: LogEvent) if event.message.startsWith("4. The Docker daemon streamed that output to the Docker client") =>
             Stop(Accept())
         }
       }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs <- docker.logs(fsm)(Observable(_))("basic")
+        _ <- check(isAccepting(obs))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(helloworld.logging())) should observe(Accept())
+      inside(expt[HelloWorldModel].runDocker(Map("basic" -> helloworld)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
   }
 

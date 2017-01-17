@@ -4,20 +4,26 @@ package cakesolutions.docker.testkit.examples
 
 import akka.http.scaladsl.model.{HttpEntity, HttpHeader, Multipart, StatusCodes}
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import cakesolutions.docker._
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
-import cakesolutions.docker.testkit.automata.MatchingAutomata
+import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.clients.RestAPIClient
 import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher._
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import cats.Now
 import monix.execution.Scheduler
 import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.sys.process._
 
-object WordpressLogEvents {
+object WordpressMySQLDockerTest {
   val mysqlStarted =
     (entry: LogEvent) => entry.message.endsWith("mysqld: ready for connections.")
 
@@ -36,9 +42,8 @@ object WordpressLogEvents {
 
 class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with ScalatestRouteTest with DockerComposeTestKit with TestLogger with ScalaFutures {
   import DockerComposeTestKit._
-  import MatchingAutomata._
   import RestAPIClient._
-  import WordpressLogEvents._
+  import WordpressMySQLDockerTest._
 
   implicit val testDuration = 2.minutes
   implicit val routeTestTimeout = RouteTestTimeout(testDuration)
@@ -95,17 +100,27 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
 
   override def afterAll(): Unit = {
     compose.down()
+    // The following is a HACK to avoid Docker from consuming unnecessary volume resources
+    val docker = implicitly[Driver].docker
+    val volumes = docker.execute("volume", "ls", "-qf", "dangling=true").!!.split("\n").toSeq
+    docker.execute("volume" +: "rm" +: volumes: _*).!!(log.stderr)
     super.afterAll()
   }
 
-  alert("WARNING: the underlying MySQL container implementation can consume Docker volume resources")
-  alert("- use `docker volume rm $(docker volume ls -qf dangling=true)` to avoid out of disk space errors")
+  type _validate[Model] = Validate[String, ?] |= Model
+  type WordpressMysqlModel = Fx.fx3[DockerAction, Validate[String, ?], ErrorOrOk]
+
+  def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+    for {
+      isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+      result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+    } yield result
+  }
 
   "Wordpress and MySQL networked application" - {
-
     "wordpress site is up and responding" in {
-      val checkSiteUp = Observable.defer {
-        Observable(
+      def checkSiteUp[Model: _errorOrOk]: Eff[Model, Assertion] = {
+        ErrorEffect.eval(Now {
           Get(s"http://$webHost:$webPort/") ~> restClient ~> check {
             status shouldEqual StatusCodes.Found
             inside(header("Location")) {
@@ -116,26 +131,41 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
                 }
             }
           }
-        )
+        })
       }
-
-      val fsm = MatchingAutomata[Int, LogEvent](0) {
-        case 0 => {
-          case event: LogEvent if mysqlStarted(event) =>
-            Goto(1)
-        }
-        case 1 => {
-          case event: LogEvent if apacheStarted(event) =>
-            checkSiteUp.runAsyncGetLast
-            Goto(2)
-        }
-        case 2 => {
-          case event: LogEvent if accessEvent(event) =>
+      val fsm1 = Monitor[Unit, LogEvent](()) {
+        case _ => {
+          case Observe(event: LogEvent) if mysqlStarted(event) =>
             Stop(Accept())
         }
       }
+      val fsm2 = Monitor[Unit, LogEvent](()) {
+        case _ => {
+          case Observe(event: LogEvent) if apacheStarted(event) =>
+            Stop(Accept())
+        }
+      }
+      val fsm3 = Monitor[Unit, LogEvent](()) {
+        case _ => {
+          case Observe(event: LogEvent) if accessEvent(event) =>
+            Stop(Accept())
+        }
+      }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs1 <- docker.logs(fsm1)(Observable(_))("mysql")
+        _ <- check(isAccepting(obs1))
+        obs2 <- docker.logs(fsm2)(Observable(_))("wordpress")
+        _ <- check(isAccepting(obs2))
+        assert <- checkSiteUp
+        _ <- validateCheck(assert == Succeeded, "HTTP client failed to load Wordpress start page")
+        obs3 <- docker.logs(fsm3)(Observable(_))("wordpress")
+        _ <- check(isAccepting(obs3))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(wordpress.logging()), TimedObservable.cold(mysql.logging())) should observe(Accept())
+      inside(expt[WordpressMysqlModel].runDocker(Map("wordpress" -> wordpress, "mysql" -> mysql)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
 
     "wordpress hello-world site setup" in {
@@ -154,8 +184,8 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
           "weblog_title" -> HttpEntity("Hello World")
         )
       }
-      val configureSite = Observable.defer {
-        Observable(
+      def configureSite[Model: _errorOrOk]: Eff[Model, Assertion] = {
+        ErrorEffect.eval(Now {
           Post(s"http://$webHost:$webPort/wp-admin/install.php?step=1", languageForm) ~> restClient ~> check {
             status shouldEqual StatusCodes.OK
 
@@ -169,30 +199,41 @@ class WordpressMySQLDockerTest extends FreeSpec with Matchers with Inside with S
               }
             }
           }
-        )
+        })
       }
-
-      val fsm = MatchingAutomata[Int, LogEvent](0) {
-        case 0 => {
-          case event: LogEvent if apacheStarted(event) =>
-            configureSite.runAsyncGetLast
-            Goto(1)
-        }
-        case 1 => {
-          case event: LogEvent if setupEvents(0)(event) =>
-            Goto(2)
-        }
-        case 2 => {
-          case event: LogEvent if setupEvents(1)(event) =>
-            Goto(3)
-        }
-        case 3 => {
-          case event: LogEvent if setupEvents(2)(event) =>
+      val fsm1 = Monitor[Unit, LogEvent](()) {
+        case _ => {
+          case Observe(event: LogEvent) if apacheStarted(event) =>
             Stop(Accept())
         }
       }
+      val fsm2 = Monitor[Int, LogEvent](1) {
+        case 1 => {
+          case Observe(event: LogEvent) if setupEvents(0)(event) =>
+            Goto(2)
+        }
+        case 2 => {
+          case Observe(event: LogEvent) if setupEvents(1)(event) =>
+            Goto(3)
+        }
+        case 3 => {
+          case Observe(event: LogEvent) if setupEvents(2)(event) =>
+            Stop(Accept())
+        }
+      }
+      def expt[Model: _docker: _validate: _errorOrOk]: Eff[Model, Notify] = for {
+        obs1 <- docker.logs(fsm1)(Observable(_))("wordpress")
+        _ <- check(isAccepting(obs1))
+        assert <- configureSite
+        _ <- validateCheck(assert == Succeeded, "HTTP client failed to configure Wordpress site")
+        obs2 <- docker.logs(fsm2)(Observable(_))("wordpress")
+        _ <- check(isAccepting(obs2))
+      } yield Accept()
 
-      fsm.run(TimedObservable.cold(wordpress.logging())) should observe(Accept())
+      inside(expt[WordpressMysqlModel].runDocker(Map("wordpress" -> wordpress, "mysql" -> mysql)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
   }
 }

@@ -58,6 +58,7 @@ object DockerComposeProtocol {
           "rate" +: spec.split(" ")
       }
 
+      // TODO: make this action be persistent (so newly launched containers inherit these networking properties)!!
       // TODO: only allow if NET_ADMIN capability is enabled
       def impair(impairments: Impairment*)(implicit driver: Driver): Unit = {
         network.inspect.Containers.keys.foreach { container =>

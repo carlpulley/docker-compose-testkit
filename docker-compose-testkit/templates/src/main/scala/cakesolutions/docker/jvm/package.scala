@@ -15,12 +15,12 @@ package object jvm {
   case object JvmGCEnd extends JvmGCEvent
 
   sealed trait JvmGCAction[Result]
-  final case class JvmGC(name: String, data: JvmGCEvent) extends JvmGCAction[Unit]
+  final case class JvmGC(name: String, others: Seq[String], data: JvmGCEvent) extends JvmGCAction[Unit]
 
   type _jvm[Model] = JvmGCAction |= Model
 
-  def jvmGC[Model: _jvm](data: JvmGCEvent)(name: String): Eff[Model, Unit] =
-    Eff.send[JvmGCAction, Model, Unit](JvmGC(name, data))
+  def jvmGC[Model: _jvm](data: JvmGCEvent)(name: String, others: String*): Eff[Model, Unit] =
+    Eff.send[JvmGCAction, Model, Unit](JvmGC(name, others, data))
 
   implicit class JvmRun[R, A](effects: Eff[R, A]) {
     def runJvm[U](
@@ -32,14 +32,14 @@ package object jvm {
       translate(effects)(new Translate[JvmGCAction, U] {
         def apply[X](jvm: JvmGCAction[X]): Eff[U, X] = {
           jvm match {
-            case JvmGC(name, JvmGCStart) =>
+            case JvmGC(name, others, JvmGCStart) =>
               ErrorEffect.eval(Now {
-                db(name).pause().asInstanceOf[X]
+                (name +: others).foreach(nm => db(nm).pause()).asInstanceOf[X]
               })
 
-            case JvmGC(name, JvmGCEnd) =>
+            case JvmGC(name, others, JvmGCEnd) =>
               ErrorEffect.eval(Now {
-                db(name).unpause().asInstanceOf[X]
+                (name +: others).foreach(nm => db(nm).unpause()).asInstanceOf[X]
               })
           }
         }

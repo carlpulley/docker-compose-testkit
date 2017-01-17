@@ -4,22 +4,27 @@ package cakesolutions.docker.testkit.examples
 
 import akka.actor.ActorSystem
 import cakesolutions.BuildInfo
-import cakesolutions.docker.testkit.automata.MatchingAutomata
+import cakesolutions.docker._
+import cakesolutions.docker.libfiu._
+import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.clients.LibFiuClient
-import cakesolutions.docker.testkit.logging.TestLogger
-import cakesolutions.docker.testkit.matchers.ObservableMatcher
-import cakesolutions.docker.testkit.{DockerCompose, DockerComposeTestKit, DockerImage, TimedObservable}
+import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
+import cats.Now
 import monix.execution.Scheduler
+import monix.reactive.Observable
+import org.atnos.eff.ErrorEffect._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
 import org.scalatest._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Random
 
 class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Inside with BeforeAndAfter with DockerComposeTestKit with TestLogger {
   import DockerComposeTestKit._
   import LibFiuClient._
-  import MatchingAutomata.{not => negation, _}
-  import ObservableMatcher._
 
   val initialDelay = 10.seconds
   val maxWait = 40.seconds
@@ -64,11 +69,23 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
     compose.down()
   }
 
-  def events(image: DockerImage) = TimedObservable.hot(image.events("event=die").publish)
+  type _validate[Model] = Validate[String, ?] |= Model
+  type LibPreloadFaultInjectionModel = Fx.fx4[DockerAction, LibfiuAction, Validate[String, ?], ErrorOrOk]
 
-  def stable(period: FiniteDuration) = MatchingAutomata[Unit, String]((), period) {
+  def check[Model: _validate: _errorOrOk](obs: Observable[Boolean])(implicit scheduler: Scheduler): Eff[Model, Unit] = {
+    for {
+      isTrue <- ErrorEffect.eval(Now(Await.result(obs.runAsyncGetFirst, Duration.Inf)))
+      result <- validateCheck(isTrue.contains(true), "Observable should produce a true initial value")
+    } yield result
+  }
+
+  def note[Model: _errorOrOk](msg: String)(implicit log: Logger): Eff[Model, Unit] = {
+    ErrorEffect.eval(Now(log.info(s"${Console.WHITE}$msg")))
+  }
+
+  def stable(period: FiniteDuration) = Monitor[Unit, String]((), period) {
     case _ => {
-      case event: String =>
+      case Observe(event: String) =>
         Stop(Fail(s"Detected container death event: $event"))
       case StateTimeout =>
         Stop(Accept())
@@ -77,19 +94,21 @@ class LibPreloadFaultInjectionDockerTest extends FreeSpec with Matchers with Ins
 
   s"${title}libfiu instrumented containers may be fault injected" - {
     s"${title}memory management fault injection" in {
-      val eventStream = events(akkaNode)
-      eventStream.observable.connect()
-
-      val testSimulation = for {
-        _ <- stable(initialDelay + Random.nextInt(maxWait.toSeconds.toInt).seconds).run(eventStream).outcome
-        _ = note(s"${highlight}Stable running container")
-        _ = akkaNode.random(posix.mm(), 0.2)
-        _ = note(s"${highlight}Random fault injection enabled")
-        _ <- negation(stable(maxWait).run(eventStream)).outcome
-        _ = note(s"${highlight}Container died")
+      def expt[Model: _docker: _libfiu: _validate :_errorOrOk]: Eff[Model, Notify] = for {
+        obs1 <- docker.events(stable(initialDelay + Random.nextInt(maxWait.toSeconds.toInt).seconds))(Observable(_))("event=die")("akka-node")
+        _ <- check(isAccepting(obs1))
+        _ <- note(s"${highlight}Stable running container")
+        _ <- random(posix.mm(), 0.2)("akka-node")
+        _ <- note(s"${highlight}Random fault injection enabled")
+        obs2 <- docker.events(stable(maxWait))(Observable(_))("event=die")("akka-node").invert
+        _ <- check(isAccepting(obs2))
+        _ <- note(s"${highlight}Container died")
       } yield Accept()
 
-      testSimulation should observe(Accept())
+      inside(expt[LibPreloadFaultInjectionModel].runDocker(Map("akka-node" -> akkaNode)).runLibfiu(Map("akka-node" -> akkaNode)).runError.runNel) {
+        case Pure(Right(Right(Accept())), _) =>
+          assert(true)
+      }
     }
   }
 }
