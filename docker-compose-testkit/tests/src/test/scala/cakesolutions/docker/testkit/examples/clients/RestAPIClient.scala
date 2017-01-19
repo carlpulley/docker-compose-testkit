@@ -1,6 +1,6 @@
 // Copyright 2016 Carl Pulley
 
-package cakesolutions.docker.testkit.clients
+package cakesolutions.docker.testkit.examples.clients
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http

@@ -2,17 +2,19 @@
 
 package cakesolutions.docker.network.default
 
+import cakesolutions.docker.network.NetworkControl
+import cakesolutions.docker.network.NetworkControl._
 import cakesolutions.docker.testkit.DockerCompose
-import cakesolutions.docker.testkit.network.ImpairmentSpec.Impairment
-import cakesolutions.docker.testkit.yaml.DockerComposeProtocol
+import cakesolutions.docker.testkit.DockerComposeTestKit.Driver
+import cakesolutions.docker.testkit.yaml.DockerComposeProtocol.NetworkInteraction
 import cats.Now
 import org.atnos.eff.ErrorEffect._
 import org.atnos.eff._
 import org.atnos.eff.interpret._
 
-package object linux {
-  import DockerComposeProtocol.Linux._
+import scala.sys.process._
 
+package object linux {
   sealed trait NetworkAction[Result]
   final case class ImpairNetwork(name: String, others: Seq[String], spec: Impairment*) extends NetworkAction[Unit]
 
@@ -37,6 +39,52 @@ package object linux {
           }
         }
       })
+    }
+  }
+
+  implicit class IPTableControl(network: NetworkInteraction) extends NetworkControl {
+    private def eval(impairment: Impairment): Seq[String] = impairment match {
+      // limit packets
+      case Limit(spec) =>
+        "limit" +: spec.split(" ")
+      // delay TIME [ JITTER [ CORRELATION ]]] [ distribution { uniform | normal | pareto |  paretonormal } ]
+      case Delay(spec) =>
+        "delay" +: spec.split(" ")
+      // loss { random PERCENT [ CORRELATION ]  | state p13 [ p31 [ p32 [ p23 [ p14]]]] | gemodel p [ r [ 1-h [ 1-k ]]] }  [ ecn ]
+      case Loss(spec, _ @ _*) =>
+        "loss" +: spec.split(" ")
+      // corrupt PERCENT [ CORRELATION ]]
+      case Corrupt(spec) =>
+        "corrupt" +: spec.split(" ")
+      // duplicate PERCENT [ CORRELATION ]]
+      case Duplicate(spec) =>
+        "duplicate" +: spec.split(" ")
+      // reorder PERCENT [ CORRELATION ] [ gap DISTANCE ]
+      case Reorder(spec) =>
+        "reorder" +: spec.split(" ")
+      // rate RATE [ PACKETOVERHEAD [ CELLSIZE [ CELLOVERHEAD ]]]]
+      case Rate(spec) =>
+        "rate" +: spec.split(" ")
+    }
+
+    // TODO: make this action be persistent (so newly launched containers inherit these networking properties)!!
+    // TODO: only allow if NET_ADMIN capability is enabled
+    def impair(impairments: Impairment*)(implicit driver: Driver): Unit = {
+      network.inspect.Containers.keys.foreach { container =>
+        val spec = impairments.flatMap(eval)
+
+        driver
+          .docker
+          .execute(Seq("exec", "--user", "root", "-t", container, "tc", "qdisc", "replace", "dev", s"eth${network.nic(container)}", "root", "netem") ++ spec: _*).!!
+      }
+    }
+
+    def reset()(implicit driver: Driver): Unit = {
+      network.inspect.Containers.keys.foreach { container =>
+        driver
+          .docker
+          .execute("exec", "--user", "root", "-t", container, "tc", "qdisc", "del", "dev", s"eth${network.nic(container)}", "root", "netem").!!
+      }
     }
   }
 }

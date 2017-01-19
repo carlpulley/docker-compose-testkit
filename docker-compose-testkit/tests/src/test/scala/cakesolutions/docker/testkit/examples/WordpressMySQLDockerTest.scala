@@ -7,7 +7,7 @@ import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import cakesolutions.docker._
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit._
-import cakesolutions.docker.testkit.clients.RestAPIClient
+import cakesolutions.docker.testkit.examples.clients.RestAPIClient
 import cakesolutions.docker.testkit.logging.TestLogger
 import cats.Now
 import monix.execution.Scheduler

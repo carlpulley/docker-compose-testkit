@@ -7,10 +7,10 @@ import java.util.NoSuchElementException
 
 import akka.actor.ActorSystem
 import cakesolutions.docker._
+import cakesolutions.docker.network.NetworkControl._
 import cakesolutions.docker.network.default.linux._
 import cakesolutions.docker.testkit._
 import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
-import cakesolutions.docker.testkit.network.ImpairmentSpec.{Delay, Loss}
 import cats.Now
 import monix.execution.Scheduler
 import monix.reactive.Observable

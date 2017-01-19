@@ -1,6 +1,6 @@
 // Copyright 2016 Carl Pulley
 
-package cakesolutions.docker.testkit.clients
+package cakesolutions.docker.libfiu
 
 import cakesolutions.docker.testkit.DockerImage
 import monix.execution.Scheduler

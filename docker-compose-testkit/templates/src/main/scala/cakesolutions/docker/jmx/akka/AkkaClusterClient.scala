@@ -1,6 +1,6 @@
 // Copyright 2016 Carl Pulley
 
-package cakesolutions.docker.testkit.clients
+package cakesolutions.docker.jmx.akka
 
 import akka.actor.{Address, AddressFromURIString}
 import akka.cluster.MemberStatus

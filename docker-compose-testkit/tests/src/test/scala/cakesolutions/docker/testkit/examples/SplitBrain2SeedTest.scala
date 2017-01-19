@@ -3,10 +3,10 @@ package cakesolutions.docker.testkit.examples
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus.Up
 import cakesolutions.BuildInfo
+import cakesolutions.docker.jmx.akka.AkkaClusterClient.AkkaClusterState
 import cakesolutions.docker.jmx.akka._
 import cakesolutions.docker.testkit.DockerComposeTestKit.LogEvent
 import cakesolutions.docker.testkit._
-import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
 import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
 import cakesolutions.docker.{jmx => _, _}
 import cats.Now

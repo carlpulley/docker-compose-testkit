@@ -1,10 +1,10 @@
 // Copyright 2016 Carl Pulley
 
-package cakesolutions.docker.testkit.network
+package cakesolutions.docker.network
 
-// TODO: add in impairment constraints - e.g. port, protocol, ...
-object ImpairmentSpec {
+import cakesolutions.docker.testkit.DockerComposeTestKit.Driver
 
+object NetworkControl {
   // NOTE: constraints are *only* applied to egress points!
   sealed trait Constraint
   final case class Port(value: Int) extends Constraint {
@@ -31,5 +31,12 @@ object ImpairmentSpec {
   final case class Reorder(spec: String) extends Impairment
   // rate RATE [ PACKETOVERHEAD [ CELLSIZE [ CELLOVERHEAD ]]]]
   final case class Rate(spec: String) extends Impairment
+}
 
+trait NetworkControl {
+  import NetworkControl._
+
+  def impair(impairments: Impairment*)(implicit driver: Driver): Unit
+
+  def reset()(implicit driver: Driver): Unit
 }

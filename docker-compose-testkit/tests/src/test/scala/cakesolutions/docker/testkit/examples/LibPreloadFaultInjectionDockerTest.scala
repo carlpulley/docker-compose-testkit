@@ -7,7 +7,6 @@ import cakesolutions.BuildInfo
 import cakesolutions.docker._
 import cakesolutions.docker.libfiu._
 import cakesolutions.docker.testkit._
-import cakesolutions.docker.testkit.clients.LibFiuClient
 import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
 import cats.Now
 import monix.execution.Scheduler

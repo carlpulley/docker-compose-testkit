@@ -5,14 +5,14 @@ package cakesolutions.docker.testkit.examples
 import akka.actor.{ActorSystem, Address}
 import akka.cluster.MemberStatus
 import cakesolutions.BuildInfo
+import cakesolutions.docker.jmx.akka.AkkaClusterClient.AkkaClusterState
 import cakesolutions.docker.jmx.akka._
 import cakesolutions.docker.jvm._
+import cakesolutions.docker.network.NetworkControl._
 import cakesolutions.docker.network.default.linux._
 import cakesolutions.docker.testkit.DockerComposeTestKit.DockerComposeYaml
 import cakesolutions.docker.testkit._
-import cakesolutions.docker.testkit.clients.AkkaClusterClient.AkkaClusterState
 import cakesolutions.docker.testkit.logging.{Logger, TestLogger}
-import cakesolutions.docker.testkit.network.ImpairmentSpec.Loss
 import cakesolutions.docker.{jmx => _, jvm => _, _}
 import cats.Now
 import monix.execution.Scheduler

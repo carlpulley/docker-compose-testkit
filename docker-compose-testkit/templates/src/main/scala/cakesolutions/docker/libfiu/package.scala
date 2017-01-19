@@ -2,8 +2,8 @@
 
 package cakesolutions.docker
 
+import cakesolutions.docker.libfiu.LibFiuClient
 import cakesolutions.docker.testkit.DockerImage
-import cakesolutions.docker.testkit.clients.LibFiuClient
 import cats.Now
 import monix.execution.Scheduler
 import org.atnos.eff.ErrorEffect._

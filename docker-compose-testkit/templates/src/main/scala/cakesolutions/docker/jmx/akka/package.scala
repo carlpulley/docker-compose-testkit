@@ -3,7 +3,7 @@
 package cakesolutions.docker.jmx
 
 import _root_.akka.actor.ActorSystem
-import cakesolutions.docker.testkit.clients.AkkaClusterClient
+import cakesolutions.docker.jmx.akka.AkkaClusterClient
 import cakesolutions.docker.testkit.logging.Logger
 import cakesolutions.docker.testkit.{DockerImage, Monitor, Notify}
 import cats.Now
